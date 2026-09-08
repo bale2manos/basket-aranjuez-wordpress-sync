@@ -10,6 +10,9 @@ if not exist ".venv\Scripts\python.exe" (
 
 call ".venv\Scripts\python.exe" -m pip install pyinstaller
 if errorlevel 1 goto :error
+set "PLAYWRIGHT_BROWSERS_PATH=%~dp0browsers"
+call ".venv\Scripts\python.exe" -m playwright install chromium
+if errorlevel 1 goto :error
 call ".venv\Scripts\python.exe" -m PyInstaller --noconfirm --clean --onedir --name BasketWordPressSync --paths src wordpress_sync.py
 if errorlevel 1 goto :error
 
@@ -20,6 +23,7 @@ if exist "resultados\fotos\basket_aranjuez.png" (
   if not exist "dist\BasketWordPressSync\resultados\fotos" mkdir "dist\BasketWordPressSync\resultados\fotos"
   copy /y "resultados\fotos\basket_aranjuez.png" "dist\BasketWordPressSync\resultados\fotos\basket_aranjuez.png" >nul
 )
+if exist "browsers" xcopy /e /i /y "browsers" "dist\BasketWordPressSync\browsers" >nul
 
 echo.
 echo Ejecutable creado en dist\BasketWordPressSync\BasketWordPressSync.exe
