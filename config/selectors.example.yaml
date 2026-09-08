@@ -1,0 +1,19 @@
+login:
+  username_input: "#user_login"
+  password_input: "#user_pass"
+  submit_button: "#wp-submit"
+
+editor:
+  preview_frame: "iframe#elementor-preview-iframe, iframe#iframe-editor-preview"
+  side_panel: "#elementor-panel"
+  widget_type_label: "#elementor-panel-header-title"
+  header_title_input: "#elementor-controls input[data-setting='title'], #elementor-controls textarea[data-setting='title']"
+  text_editor_visual_editable: "#elementor-controls .mce-content-body, #elementor-controls [contenteditable='true']"
+  text_editor_html_textarea: "#elementor-panel-content-wrapper .wp-editor-area, #elementor-controls textarea[data-setting='editor']"
+  save_button: "button:has-text('Actualizar'), button:has-text('Guardar borrador')"
+  success_toast: ".notice-success, .toast-success, .elementor-toast-message"
+
+preview:
+  team_block_ancestors:
+    - "xpath=ancestor::*[contains(@class,'elementor-top-section')][1]"
+    - "xpath=ancestor::*[contains(@class,'elementor-section')][1]"

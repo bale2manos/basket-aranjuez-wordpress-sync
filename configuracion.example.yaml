@@ -1,0 +1,23 @@
+# Configuracion principal para el uso semanal. Puedes editarla desde la GUI.
+site_key: "basket-aranjuez"
+docx_path: "resultados/Cronicas.docx"
+photos_zip_available: false
+photos_zip_path: ""
+
+entry_urls:
+  senior: "https://TU-DOMINIO/wp-admin/post.php?post=ID&action=elementor"
+  alevin: ""
+  infantil_femenino: ""
+  infantil_masculino: ""
+  cadete: ""
+  junior: ""
+  sub22: ""
+
+section_order:
+  - alevin
+  - infantil_femenino
+  - infantil_masculino
+  - cadete
+  - junior
+  - sub22
+  - senior

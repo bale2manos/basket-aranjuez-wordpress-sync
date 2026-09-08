@@ -1,0 +1,13 @@
+sections:
+  senior:
+    teams:
+      - web_block_name: "Senior Femenino A"
+        heading_aliases: ["SENIOR FEMENINO A"]
+        competition_aliases: []
+        result_aliases: ["BASKET ARANJUEZ"]
+        photo_aliases: []
+        expected_order: 1
+
+  # Copia y amplía esta sección con los equipos de tu club.
+  alevin:
+    teams: []
