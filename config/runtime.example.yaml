@@ -1,0 +1,45 @@
+defaults:
+  logs_dir: "logs"
+  screenshots_dir: "screenshots"
+  output_dir: "output/wordpress_sync"
+  state_dir: "output/wordpress_sync/state"
+  photos_dir: "resultados/fotos"
+  browser: "chromium"
+  headless: false
+  delete_mode: "remove_widget_or_container"
+  rich_text_mode: "visual"
+  missing_result_behavior: "warn_and_skip"
+  prefer_visual_text_editor: true
+  empty_chronicle_placeholder: "-"
+  photo_fallback_name: "basket_aranjuez.png"
+  photos_zip_available: false
+  photos_zip_path: ""
+  default_docx_path: ""
+  default_site_key: "basket-aranjuez"
+  section_entry_urls: {}
+  section_order: []
+  section_period_counts:
+    senior: 4
+    alevin: 6
+    infantil_femenino: 4
+    infantil_masculino: 4
+    cadete: 4
+    junior: 4
+    sub22: 4
+  period_label_templates:
+    "4": "{index}C"
+    "6": "{index}P"
+  overtime_label: "PR"
+  timeouts:
+    navigation_ms: 30000
+    ui_ms: 10000
+    save_ms: 15000
+  retries:
+    widget_selection: 2
+    widget_edit: 2
+
+sites:
+  basket-aranjuez:
+    login_url: "https://TU-DOMINIO/wp-login.php"
+    admin_posts_url: "https://TU-DOMINIO/wp-admin/edit.php"
+    storage_state_path: "output/wordpress_sync/state/basket-aranjuez.json"

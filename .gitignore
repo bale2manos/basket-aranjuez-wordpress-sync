@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# Local configuration and credentials
+.env
+*.local.yaml
+output/wordpress_sync/state/
+
+# Generated execution data
+logs/*
+!logs/.gitkeep
+screenshots/*
+!screenshots/.gitkeep
+output/*
+!output/.gitkeep
+
+# Weekly inputs and extracted media
+input/*
+resultados/*.docx
+resultados/*.xlsx
+resultados/*.zip
+resultados/fotos/*
+!resultados/fotos/basket_aranjuez.png
+
+# Generated/original design exports
+data/result_overrides.json
+*.log
+*.jsonl

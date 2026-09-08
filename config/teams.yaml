@@ -1,0 +1,436 @@
+sections:
+  alevin:
+    teams:
+      - web_block_name: "Alevín Femenino 1º año Blanco"
+        heading_aliases:
+          - "ALEVIN FEMENINO PRIMER AÑO"
+          - "ALEVÍN FEMENINO PRIMER AÑO"
+        competition_aliases:
+          - "ALEVÍN FEMENINO PRIMER AÑO"
+          - "PLAYOFFS 1/16 FINAL"
+        result_aliases:
+          - "BASKET ARANJUEZ BLANCO"
+        photo_aliases:
+          - "AlevFem1AñoBlanco"
+        expected_order: 1
+      - web_block_name: "Alevín Femenino 1º año Rubiocar"
+        heading_aliases:
+          - "ALEVIN FEMENINO PRIMER AÑO"
+          - "ALEVÍN FEMENINO PRIMER AÑO"
+        competition_aliases:
+          - "ALEVÍN FEMENINO PRIMER AÑO"
+          - "PUESTOS 66-71"
+        result_aliases:
+          - "BASKET ARANJUEZ RUBIOCAR"
+        photo_aliases:
+          - "AlevFem1AñoRubiocar"
+        expected_order: 2
+      - web_block_name: "Alevín Femenino 2º año Tapería Postas"
+        heading_aliases:
+          - "ALEVIN FEMENINO SEGUNDO AÑO"
+          - "ALEVÍN FEMENINO SEGUNDO AÑO"
+        competition_aliases:
+          - "ALEVÍN FEMENINO SEGUNDO AÑO"
+          - "PLAYOFFS 1/16 FINAL"
+        result_aliases:
+          - "BASKET ARANJUEZ POSTAS TAPERIA"
+          - "BASKET ARANJUEZ POSTAS TAPERÍA"
+        photo_aliases:
+          - "AlevFem2AñoPostasTaperia"
+          - "AlevFem2AñoTaperiaPostas"
+        expected_order: 3
+      - web_block_name: "Alevín Femenino 2º año Negro"
+        heading_aliases:
+          - "ALEVIN FEMENINO SEGUNDO AÑO"
+          - "ALEVÍN FEMENINO SEGUNDO AÑO"
+        competition_aliases:
+          - "ALEVÍN FEMENINO SEGUNDO AÑO"
+          - "CLASIFICACIÓN PUESTOS DEL 61 AL 66"
+          - "LIGA MARCO ALDANY PLATA"
+          - "GRUPO 5"
+        result_aliases:
+          - "BASKET ARANJUEZ"
+          - "BASKET ARANJUEZ NEGRO"
+        photo_aliases:
+          - "AlevFem2AñoNegro"
+        expected_order: 4
+      - web_block_name: "Alevín Masculino 1º año CAS"
+        heading_aliases:
+          - "ALEVIN MASCULINO PRIMER AÑO"
+          - "ALEVÍN MASCULINO PRIMER AÑO"
+        competition_aliases:
+          - "ALEVÍN MASCULINO PRIMER AÑO"
+          - "PUESTOS 55-60"
+        result_aliases:
+          - "BASKET ARANJUEZ CAS"
+        photo_aliases:
+          - "AlevMasc1AñoCAS"
+        expected_order: 5
+      - web_block_name: "Alevín Masculino 2º año Clínica Richer"
+        heading_aliases:
+          - "ALEVIN MASCULINO SEGUNDO AÑO"
+          - "ALEVÍN MASCULINO SEGUNDO AÑO"
+        competition_aliases:
+          - "ALEVÍN MASCULINO SEGUNDO AÑO"
+          - "LIGA MARCO ALDANY PLAYOFFS 1/16 FINAL"
+        result_aliases:
+          - "BASKET ARANJUEZ CLINICA RICHER"
+          - "BASKET ARANJUEZ CLÍNICA RICHER"
+        photo_aliases:
+          - "AlevMasc2AñoClinicaRicher"
+        expected_order: 6
+      - web_block_name: "Alevín Masculino 2º año Negro"
+        heading_aliases:
+          - "ALEVIN MASCULINO SEGUNDO AÑO"
+          - "ALEVÍN MASCULINO SEGUNDO AÑO"
+        competition_aliases:
+          - "ALEVÍN MASCULINO SEGUNDO AÑO"
+        result_aliases:
+          - "BASKET ARANJUEZ B"
+        photo_aliases:
+          - "AlevMasc2AñoNegro"
+        expected_order: 7
+
+  infantil_femenino:
+    teams:
+      - web_block_name: "Infantil Femenino 1º año Blanco"
+        heading_aliases:
+          - "INFANTIL FEMENINO PRIMER AÑO"
+        competition_aliases:
+          - "GRUPO 3"
+          - "PLAYOFFS 1/16 FINAL"
+        display_competition: "INFANTIL PREFERENTE 1er AÑO"
+        result_aliases:
+          - "BASKET ARANJUEZ BLANCO"
+        photo_aliases:
+          - "InfFem1AñoA"
+        expected_order: 1
+      - web_block_name: "Infantil Femenino 1º año Negro"
+        heading_aliases:
+          - "INFANTIL FEMENINO PRIMER AÑO"
+        competition_aliases:
+          - "GRUPO 4"
+        display_competition: "INFANTIL PREFERENTE 1er AÑO"
+        result_aliases:
+          - "BASKET ARANJUEZ NEGRO"
+        photo_aliases:
+          - "InfFem1AñoB"
+          - "InfFem1AñoNegro"
+        expected_order: 2
+      - web_block_name: "Infantil Femenino 1º año Amarillo"
+        heading_aliases:
+          - "INFANTIL FEMENINO PRIMER AÑO"
+        competition_aliases:
+          - "GRUPO 4"
+          - "PUESTOS 51-55"
+        display_competition: "INFANTIL PREFERENTE 1er AÑO"
+        result_aliases:
+          - "BASKET ARANJUEZ AMARILLO"
+        photo_aliases:
+          - "InfFem1AñoC"
+        expected_order: 3
+      - web_block_name: "Infantil Femenino 2º año Esencial Salud"
+        heading_aliases:
+          - "INFANTIL PREFERENTE FEMENINO PRIMER"
+        competition_aliases:
+          - "GRUPO 2"
+        display_competition: "INFANTIL FEMENINO PREFERENTE"
+        display_group: "PRIMERA DIVISIÓN - GRUPO 2"
+        result_aliases:
+          - "BASKET ARANJUEZ ESENCIAL SALUD"
+        photo_aliases:
+          - "InfFem2AñoA"
+          - "InfFemEsencialSalud"
+        expected_order: 4
+      - web_block_name: "Infantil Femenino 2º año Negro"
+        heading_aliases:
+          - "INFANTIL PREFERENTE FEMENINO PRIMER"
+        competition_aliases:
+          - "GRUPO 4"
+        display_competition: "INFANTIL FEMENINO PREFERENTE"
+        display_group: "PRIMERA DIVISIÓN - GRUPO 4"
+        result_aliases:
+          - "BASKET ARANJUEZ NEGRO"
+        photo_aliases:
+          - "InfFem2AñoB"
+        expected_order: 5
+
+  infantil_masculino:
+    teams:
+      - web_block_name: "Infantil Masculino 1º año Blanco"
+        heading_aliases:
+          - "INFANTIL MASCULINO PRIMER AÑO"
+        competition_aliases:
+          - "GRUPO 9"
+          - "PLAYOFFS 1/16 FINAL"
+        result_aliases:
+          - "BASKET ARANJUEZ BLANCO"
+        photo_aliases:
+          - "InfMasc1AñoA"
+        expected_order: 1
+      - web_block_name: "Infantil Masculino 1º año Negro"
+        heading_aliases:
+          - "INFANTIL MASCULINO PRIMER AÑO"
+        competition_aliases:
+          - "GRUPO 12"
+          - "PUESTOS 100-102"
+        result_aliases:
+          - "BASKET ARANJUEZ NEGRO"
+        photo_aliases:
+          - "InfMasc1AñoB"
+        expected_order: 2
+      - web_block_name: "Infantil Masculino 1º año Amarillo"
+        heading_aliases:
+          - "INFANTIL MASCULINO PRIMER AÑO"
+        competition_aliases:
+          - "GRUPO 11"
+          - "PUESTOS 109-112"
+        result_aliases:
+          - "BASKET ARANJUEZ AMARILLO"
+        photo_aliases:
+          - "InfMasc1AñoC"
+        expected_order: 3
+      - web_block_name: "Infantil Masculino 2º año Negro"
+        heading_aliases:
+          - "INFANTIL MASCULINO PRIMER"
+        competition_aliases:
+          - "GRUPO 3"
+          - "A DIVISIÓN"
+        result_aliases:
+          - "BASKET ARANJUEZ NEGRO"
+        photo_aliases:
+          - "InfMasc2AñoA"
+        expected_order: 5
+      - web_block_name: "Infantil Masculino 2º año Blanco"
+        heading_aliases:
+          - "INFANTIL MASCULINO"
+        competition_aliases:
+          - "LIGA AHORRAMAS PLATA BRONCE PRIMERA BRONCE"
+          - "GRUPO 6"
+          - "LIGA AHORRAMAS PLATA/BRONCE FASE DESCENSO"
+        result_aliases:
+          - "BASKET ARANJUEZ BLANCO"
+        photo_aliases:
+          - "InfMasc2AñoB"
+        expected_order: 4
+
+  cadete:
+    teams:
+      - web_block_name: "Cadete Femenino 1º año"
+        heading_aliases:
+          - "CADETE FEMENINO PRIMER AÑO"
+        competition_aliases:
+          - "CADETE FEMENINO PRIMER AÑO"
+        display_competition: "CADETE FEMENINO 1er AÑO"
+        display_group: "GRUPO 2"
+        result_aliases:
+          - "BASKET ARANJUEZ BLANCO"
+        photo_aliases:
+          - "CadFem1AñoA"
+        expected_order: 1
+      - web_block_name: "Cadete Femenino 2º año Tapería Postas"
+        heading_aliases:
+          - "CADETE PREFERENTE FEMENINO PRIMER"
+        competition_aliases:
+          - "GRUPO 4"
+        display_competition: "CADETE FEMENINO PREFERENTE"
+        display_group: "PRIMERA DIVISIÓN - GRUPO 4"
+        result_aliases:
+          - "BASKET ARANJUEZ POSTAS TAPERIA"
+          - "BASKET ARANJUEZ POSTAS TAPERÍA"
+        photo_aliases:
+          - "CadFem2AñoA"
+          - "CadFemTaperiaPostas"
+        expected_order: 2
+      - web_block_name: "Cadete Femenino 2º año Negro"
+        heading_aliases:
+          - "CADETE PREFERENTE FEMENINO SEGUNDA"
+        competition_aliases:
+          - "GRUPO 1"
+        display_competition: "CADETE FEMENINO PREFERENTE"
+        display_group: "SEGUNDA DIVISIÓN - GRUPO 1"
+        result_aliases:
+          - "BASKET ARANJUEZ NEGRO"
+        photo_aliases:
+          - "CadFem2AñoB"
+        expected_order: 3
+      - web_block_name: "Cadete Masculino 1º año"
+        heading_aliases:
+          - "CADETE MASCULINO PRIMER AÑO"
+        competition_aliases:
+          - "CADETE MASCULINO PRIMER AÑO"
+        display_competition: "CADETE MASCULINO 1er AÑO"
+        display_group: "GRUPO 1"
+        result_aliases:
+          - "BASKET ARANJUEZ"
+        photo_aliases:
+          - "CadMasc1AñoA"
+          - "CadMasc1Año"
+        expected_order: 4
+      - web_block_name: "Cadete Masculino 2º año Mister Pixel"
+        heading_aliases:
+          - "CADETE PREFERENTE MASCULINO PRIMER"
+        competition_aliases:
+          - "GRUPO 3"
+        display_competition: "CADETE MASCULINO PREFERENTE"
+        display_group: "PRIMERA DIVISIÓN - GRUPO 3"
+        result_aliases:
+          - "BASKET ARANJUEZ MISTER PIXEL"
+          - "BASKET ARANJUEZ MÍSTER PIXEL"
+        photo_aliases:
+          - "CadMasc2AñoA"
+        expected_order: 5
+      - web_block_name: "Cadete Masculino 2º año Negro"
+        heading_aliases:
+          - "CADETE PREFERENTE MASCULINO SEGUNDA"
+        competition_aliases:
+          - "GRUPO 1"
+        display_competition: "CADETE MASCULINO PREFERENTE"
+        display_group: "SEGUNDA DIVISIÓN - GRUPO 1"
+        result_aliases:
+          - "BASKET ARANJUEZ NEGRO"
+        photo_aliases:
+          - "CadMasc2AñoB"
+        expected_order: 6
+      - web_block_name: "Cadete Masculino 2º año Amarillo"
+        heading_aliases:
+          - "CADETE PREFERENTE MASCULINO"
+        competition_aliases:
+          - "CUARTA DIVISIÓN"
+          - "GRUPO 3"
+        display_competition: "CADETE MASCULINO PREFERENTE"
+        display_group: "CUARTA DIVISIÓN - GRUPO 3"
+        result_aliases:
+          - "BASKET ARANJUEZ AMARILLO"
+        photo_aliases:
+          - "CadMasc2AñoC"
+          - "CadMascAmarillo"
+        expected_order: 7
+
+  junior:
+    teams:
+      - web_block_name: "Junior Femenino Esencial Salud"
+        heading_aliases:
+          - "JUNIOR PREFERENTE FEMENINO PRIMER"
+        competition_aliases:
+          - "GRUPO 3"
+        display_competition: "JUNIOR FEMENINO PREFERENTE"
+        display_group: "PRIMERA DIVISIÓN - GRUPO 3"
+        result_aliases:
+          - "BASKET ARANJUEZ ESENCIAL SALUD"
+        photo_aliases:
+          - "JunFemA"
+          - "JunFemEsencialSalud"
+        expected_order: 1
+      - web_block_name: "Junior Femenino Negro"
+        heading_aliases:
+          - "JUNIOR PREFERENTE FEMENINO SEGUNDA"
+        competition_aliases:
+          - "GRUPO 5"
+        display_competition: "JUNIOR FEMENINO PREFERENTE"
+        display_group: "SEGUNDA DIVISIÓN - GRUPO 5"
+        result_aliases:
+          - "BASKET ARANJUEZ NEGRO"
+        photo_aliases:
+          - "JunFemB"
+        expected_order: 2
+      - web_block_name: "Junior Masculino Blanco"
+        heading_aliases:
+          - "JUNIOR PREFERENTE MASCULINO PRIMER"
+        competition_aliases:
+          - "GRUPO 2"
+        display_competition: "JUNIOR MASCULINO PREFERENTE"
+        display_group: "PRIMERA DIVISIÓN - GRUPO 2"
+        result_aliases:
+          - "BASKET ARANJUEZ"
+        photo_aliases:
+          - "JunMascA"
+        expected_order: 3
+      - web_block_name: "Junior Masculino Negro"
+        heading_aliases:
+          - "JUNIOR PREFERENTE MASCULINO SEGUNDA"
+        competition_aliases:
+          - "GRUPO 1"
+        display_competition: "JUNIOR MASCULINO PREFERENTE"
+        display_group: "SEGUNDA DIVISIÓN - GRUPO 1"
+        result_aliases:
+          - "BASKET ARANJUEZ B"
+        photo_aliases:
+          - "JunMascB"
+        expected_order: 4
+
+  sub22:
+    teams:
+      - web_block_name: "Sub 22 Masculino A"
+        heading_aliases:
+          - "SUB 22 MASCULINO A"
+          - "SUB22 MASCULINO A"
+          - "SUB 22 A"
+        competition_aliases:
+          - "SUB 22"
+        result_aliases: []
+        photo_aliases:
+          - "Sub22MascA"
+        expected_order: 1
+      - web_block_name: "Sub 22 Masculino B"
+        heading_aliases:
+          - "SUB 22 MASCULINO B"
+          - "SUB22 MASCULINO B"
+          - "SUB 22 B"
+        competition_aliases:
+          - "SUB 22"
+        result_aliases: []
+        photo_aliases:
+          - "Sub22MascB"
+        expected_order: 2
+
+  senior:
+    teams:
+      - web_block_name: "Senior Femenino A"
+        heading_aliases:
+          - "SENIOR FEMENINO A"
+        competition_aliases:
+          - "SEGUNDA DIVISIÓN AUTONÓMICA FEMENINO ORO"
+          - "SEGUNDA AUTONÓMICA ORO"
+        result_aliases:
+          - "BASKET ARANJUEZ"
+        photo_aliases:
+          - "SenFemA"
+        expected_order: 1
+      - web_block_name: "Senior Femenino B"
+        heading_aliases:
+          - "SENIOR FEMENINO B"
+        competition_aliases:
+          - "SEGUNDA DIVISIÓN AUTONÓMICA FEMENINO"
+          - "TERCERA DIVISIÓN AUTONÓMICA FEMENINO"
+        result_aliases:
+          - "BASKET ARANJUEZ"
+        photo_aliases:
+          - "SenFemB"
+        expected_order: 2
+      - web_block_name: "Senior Masculino A"
+        heading_aliases:
+          - "SENIOR MASCULINO A"
+          - "SENIOR MISTER PIXEL"
+        competition_aliases:
+          - "PRIMERA DIVISIÓN AUTONÓMICA MASCULINO"
+          - "SEGUNDA DIVISIÓN AUTONÓMICA MASCULINO"
+        result_aliases:
+          - "BASKET ARANJUEZ MISTER PIXEL"
+          - "BASKET ARANJUEZ MÍSTER PIXEL"
+        photo_aliases:
+          - "SenMascMisterPixel"
+          - "SenMascA"
+        expected_order: 3
+      - web_block_name: "Senior Masculino B"
+        heading_aliases:
+          - "SENIOR MASCULINO B"
+        competition_aliases:
+          - "TERCERA DIVISIÓN AUTONÓMICA MASCULINO"
+          - "SENIOR MASCULINO B"
+        result_aliases:
+          - "BASKET ARANJUEZ B"
+          - "BASKET ARANJUEZ"
+        photo_aliases:
+          - "SenMascB"
+        expected_order: 4
