@@ -12,12 +12,6 @@ defaults:
   prefer_visual_text_editor: true
   empty_chronicle_placeholder: "-"
   photo_fallback_name: "basket_aranjuez.png"
-  photos_zip_available: false
-  photos_zip_path: ""
-  default_docx_path: ""
-  default_site_key: "basket-aranjuez"
-  section_entry_urls: {}
-  section_order: []
   section_period_counts:
     senior: 4
     alevin: 6
@@ -28,6 +22,7 @@ defaults:
     sub22: 4
   period_label_templates:
     "4": "{index}C"
+    "5": "{index}C"
     "6": "{index}P"
   overtime_label: "PR"
   timeouts:
@@ -37,9 +32,8 @@ defaults:
   retries:
     widget_selection: 2
     widget_edit: 2
-
 sites:
   basket-aranjuez:
-    login_url: "https://TU-DOMINIO/wp-login.php"
-    admin_posts_url: "https://TU-DOMINIO/wp-admin/edit.php"
+    login_url: "https://basketaranjuez.com/wp-login.php"
+    admin_posts_url: "https://basketaranjuez.com/wp-admin/edit.php"
     storage_state_path: "output/wordpress_sync/state/basket-aranjuez.json"
