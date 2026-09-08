@@ -1,120 +1,243 @@
-# Generador de jornadas Basket Aranjuez
+# Basket Aranjuez WordPress Sync
 
-Proyecto Python para leer un Excel de partidos y generar imagenes verticales 1080x1350 separadas por local y visitante, junto con `summary.json` y log de ejecucion.
+Herramienta local para pasar las cronicas semanales del club desde un Word y un ZIP de fotos a las entradas de WordPress editadas con Elementor.
 
-## Uso
+La herramienta no crea entradas nuevas y no publica automaticamente. Edita las entradas que ya existen, guarda los cambios para revision y deja que una persona haga la publicacion final.
 
-1. Instala dependencias:
+## La forma recomendada para Windows
 
-```bash
-python -m pip install -r requirements.txt
-```
+Para una persona que solo quiere usar la herramienta, no hace falta conocer Python ni el codigo.
 
-2. Revisa `config.py` y ajusta rutas si lo necesitas.
+1. Entra en la pagina de releases de GitHub y descarga el ZIP mas reciente:
+   https://github.com/bale2manos/basket-aranjuez-wordpress-sync/releases
+2. Descomprime el ZIP completo en una carpeta local, por ejemplo:
+   C:/BasketWordPressSync
+3. No muevas ni borres las carpetas que hay dentro del programa. En especial, deben conservarse _internal y browsers.
+4. Copia configuracion.example.yaml y llamalo configuracion.yaml.
+5. Abre configuracion.yaml con el Bloc de notas y completa solo los datos de tu jornada.
+6. Ejecuta BasketWordPressSync.exe.
 
-3. Ejecuta el modo que quieras:
+Tambien puedes abrir wordpress_sync.bat y elegir la opcion de interfaz grafica. El resultado es el mismo.
 
-```bash
-python main.py
-python main.py --mode horarios
-python main.py --mode resultados --results-doc-path "F:\ruta\cronicas.docx"
-```
+## Configuracion semanal
 
-Sin flags, el programa usa `config.py` como fuente principal.
+Cada semana solo hay que cambiar estos datos en configuracion.yaml:
 
-## Modos
+~~~yaml
+docx_path: resultados/Cronicas de esta semana.docx
+photos_zip_available: true
+photos_zip_path: resultados/fotos/fotos.zip
 
-- `horarios`: comportamiento original. Genera tarjetas con `VS` en el bloque central.
-- `resultados`: reutiliza el mismo layout y sustituye `VS` por el marcador `local-visitante`.
+entry_urls:
+  senior: https://basketaranjuez.com/wp-admin/post.php?post=123&action=elementor
+  alevin: https://basketaranjuez.com/wp-admin/post.php?post=124&action=elementor
+~~~
 
-La salida se organiza por jornada y por modo:
+### docx_path
 
-- `output/jornada_YYYY-MM-DD/horarios/`
-- `output/jornada_YYYY-MM-DD/resultados/`
+Ruta del Word con todas las cronicas de la jornada. El documento puede contener categorias que no se van a actualizar; la herramienta las detecta, pero las ignora al elegir una seccion.
 
-## Resultados y overrides
+### photos_zip_available
 
-- El modo `resultados` lee un `.docx` desde `results_doc_path` o `--results-doc-path`.
-- Si un partido no encuentra marcador en el documento, no se renderiza en esa pasada.
-- Los faltantes se escriben en `data/result_overrides.json` para que puedas completar manualmente el campo `result` y relanzar el generador.
-- `summary.json` incluye `render_mode`, `result_text`, `result_source` y las rutas usadas para el documento y los overrides.
+Pon true si esta semana existe un ZIP nuevo de fotos y false si no existe.
 
-## Estructura
+- true: se buscan fotos nuevas para los equipos.
+- false: no se intenta abrir ningun ZIP.
+- Si un equipo no tiene foto, se usa basket_aranjuez.png.
+- El logo se reutiliza durante la ejecucion y no se sube repetidamente.
 
-- `config.py`: configuracion centralizada.
-- `main.py`: entrada principal y CLI.
-- `src/generador_horarios/`: lectura, normalizacion, resultados, render y pipeline.
-- `data/club_logo_map.csv`: mapa editable de nombres de club a logo.
-- `data/venue_map.csv`: mapa editable de sedes.
-- `data/result_overrides.json`: resultados pendientes o corregidos manualmente.
-- `output/`: salidas generadas por jornada.
+### photos_zip_path
 
-## Notas
+Ruta del ZIP de fotos. Solo se usa cuando photos_zip_available: true.
 
-- Si faltan `club_logo_map.csv` o `venue_map.csv`, el proyecto los genera automaticamente con propuestas iniciales basadas en el Excel.
-- Si falta un logo rival, el hueco se deja vacio y se registra warning sin interrumpir la ejecucion.
-- Si falta el logo fijo de Basket Aranjuez, el render sigue adelante dejando ese hueco vacio.
+### entry_urls
 
+URL de Elementor de cada entrada semanal ya creada. No son URLs de la web publica: deben terminar normalmente en:
 
-## WordPress Sync v1
+~~~text
+/wp-admin/post.php?post=ID&action=elementor
+~~~
 
-Nueva herramienta local para preparar y automatizar la edici?n semanal en WordPress/Elementor sin tocar el flujo existente de im?genes.
+Si una seccion no se va a actualizar, dejala vacia o no la ejecutes.
 
-### Comandos
+## Proceso completo de cada semana
 
-```bash
-python wordpress_sync.py auth-login
-python wordpress_sync.py dry-run --section senior
-python wordpress_sync.py dry-run-all
-python wordpress_sync.py update-block --section senior --team "Senior Femenino A"
-python wordpress_sync.py update-section --section senior
-python wordpress_sync.py update-all
-```
+### 1. Preparar los archivos
 
-Todos los comandos aceptan `--docx`, `--entry-url` o `--site-key` como override puntual, pero si no se pasan toman los valores por defecto desde `config.py`.
+Guarda en la carpeta indicada en la configuracion:
 
-Antes del primer uso real de Playwright, instala Chromium:
+- El Word de cronicas.
+- El ZIP de fotos, si existe.
+- El logo basket_aranjuez.png, para usarlo como fallback.
 
-```bash
-python -m playwright install chromium
-```
+Comprueba que el Word esta cerrado antes de iniciar la herramienta.
 
-### Configuración
+### 2. Iniciar sesion una vez
 
-- `config/teams.yaml`: mapeo de equipos y aliases por secci?n.
-- `config/selectors.yaml`: selectores ajustables de WordPress/Elementor.
-- `config/runtime.yaml`: navegador, sesi?n, rutas de artefactos y pol?ticas por defecto.
-- `config.py`: DOCX por defecto, `site_key`, orden de secciones y `entry_url` por secci?n.
+La primera vez, abre la aplicacion y pulsa Iniciar sesion. Se abrira Chromium. Haz el login de WordPress manualmente y, cuando Elementor o el panel de WordPress esten visibles, vuelve a la aplicacion y pulsa Guardar sesion.
 
-### Artefactos
+La sesion se guarda localmente. En las semanas siguientes normalmente no hay que repetir el login. Si WordPress vuelve a pedir usuario y contrasena, repite este paso.
 
-- `logs/`: log legible y JSONL por ejecuci?n.
-- `output/wordpress_sync/`: `parsed_chronicles.json` y `run_plan.json`.
-- `screenshots/`: capturas antes/despu?s y capturas de error.
+### 3. Guardar la configuracion
 
-### Notas de la v1
+Pulsa Guardar configuracion y comprueba que las rutas y las URLs aparecen correctamente.
 
-- El login se hace manualmente una vez y se reutiliza la sesi?n guardada.
-- La herramienta ya contempla las secciones `alevin`, `infantil_femenino`, `infantil_masculino`, `cadete`, `junior`, `sub22` y `senior`.
-- Se actualizan widgets `Encabezado` y `Editor de texto`; no se publica autom?ticamente.
+### 4. Ejecutar el dry-run
 
-## Distribucion para terceros
+Pulsa Comprobar dry-run. Este paso no abre WordPress ni modifica nada.
 
-La version distribuible incluye `install_windows.bat`, que crea el entorno virtual, instala las dependencias de Python y descarga Chromium. Despues se puede usar `wordpress_sync.bat` sin activar manualmente el entorno.
+El dry-run:
 
-Para una instalacion nueva:
+1. Lee todos los parrafos del Word en el orden original.
+2. Detecta el comienzo de cada bloque por su encabezado.
+3. Normaliza mayusculas, minusculas, tildes, espacios y separadores.
+4. Extrae categoria, grupo, resultado, local, visitante, tanteos, jugadores y cronica.
+5. Acepta partidos con 4, 5 o 6 periodos y avisa si falta algun tanteo.
+6. Compara cada bloque con los alias de config/teams.yaml.
+7. Filtra solo la seccion elegida: senior, alevin, infantil, cadete, junior o sub22.
+8. Indica los equipos que se actualizaran.
+9. Indica los equipos esperados que no aparecen y que se limpiaran.
+10. Indica los equipos de otras categorias que se ignoraran.
+11. Detalla errores de mapeo, resultados ambiguos o bloques incompletos.
 
-1. Ejecuta `install_windows.bat`.
-2. Copia `config.py.example` como `config.py`.
-3. Revisa `config/runtime.yaml`, `config/teams.yaml` y las URLs de las entradas.
-4. Ejecuta `wordpress_sync.bat auth-login` y completa el login en el navegador.
-5. Ejecuta primero `wordpress_sync.bat dry-run-all --docx "resultados\\Cronicas.docx"`.
-6. Si el resumen es correcto, ejecuta `wordpress_sync.bat update-all --docx "resultados\\Cronicas.docx"`.
+No continues si el dry-run muestra un mapeo ambiguo o si los equipos no coinciden con lo esperado. Corrige el Word o la configuracion y repitelo.
 
-Los documentos, fotos, logs y sesiones de WordPress son datos locales y no forman parte de la distribucion publica. Consulta [INICIO_RAPIDO.md](INICIO_RAPIDO.md) para el flujo semanal.
+### 5. Actualizar WordPress
 
-### Uso recomendado
+En la aplicacion, selecciona la seccion y pulsa Actualizar WordPress.
 
-Para usuarios no tecnicos, abre `BasketWordPressSync.exe` o ejecuta `wordpress_sync.bat gui`. El asistente permite seleccionar el Word y el ZIP de fotos, editar las URLs, iniciar sesion, ejecutar el dry-run y confirmar la actualizacion.
+La herramienta reutiliza el mismo navegador y procesa todos los equipos de esa seccion. Para cada equipo:
 
-La configuracion principal se guarda en `configuracion.yaml`. Antes de actualizar se comprueba que existen el Word, las URLs, la sesion y el fallback de fotos; tambien se guarda una copia en `output/wordpress_sync/backups/`. Si falla un equipo, el guardado de la seccion queda bloqueado por seguridad.
+- Localiza el encabezado del equipo como ancla del bloque.
+- Edita los widgets de Elementor uno por uno.
+- Actualiza categoria, grupo, nombres de equipos, marcador y parciales.
+- Mantiene la plantilla y el roster existente cuando corresponde.
+- Actualiza la cronica y pone - si no hay cronica util.
+- Pone en negrita el tanteo ganador de cada periodo.
+- Usa la foto nueva del equipo o el escudo del club como fallback.
+- Si un equipo no aparece en el Word, elimina todo su contenido relacionado, incluidos cronica, marcador, categoria, jugadores y foto, segun el modo configurado.
+
+Si un equipo tiene dos partidos, se crean dos cronicas dentro de su bloque siempre que el Word los identifique como partidos distintos.
+
+### 6. Revisar y publicar manualmente
+
+La herramienta guarda la entrada para revision, pero no pulsa Publicar.
+
+Abre la entrada en WordPress y revisa:
+
+- Orden de los equipos.
+- Nombre, categoria y grupo.
+- Resultado y parciales.
+- Negritas de los parciales ganadores.
+- Cronicas y fotos.
+- Equipos que no jugaron y han sido eliminados.
+
+Cuando todo sea correcto, publica manualmente desde WordPress.
+
+## Uso por consola
+
+La interfaz grafica es la opcion recomendada. Para diagnostico o usuarios avanzados se puede usar PowerShell desde la carpeta del proyecto:
+
+~~~powershell
+./wordpress_sync.bat gui
+~~~
+
+Login manual:
+
+~~~powershell
+python wordpress_sync.py auth-login --site-key basket-aranjuez
+~~~
+
+Dry-run de una seccion:
+
+~~~powershell
+python wordpress_sync.py dry-run --docx "resultados/Cronicas.docx" --section infantil
+~~~
+
+Actualizacion de una seccion completa:
+
+~~~powershell
+python wordpress_sync.py update-section --docx "resultados/Cronicas.docx" --section infantil --entry-url "URL_DE_ELEMENTOR"
+~~~
+
+Actualizacion de senior y alevin en una sola ejecucion:
+
+~~~powershell
+python wordpress_sync.py update-weekend --docx "resultados/Cronicas.docx" --senior-entry-url "URL_DE_ELEMENTOR_SENIOR" --alevin-entry-url "URL_DE_ELEMENTOR_ALEVIN"
+~~~
+
+Para actualizar varias secciones con la configuracion central, usa la opcion de la interfaz grafica o el comando disponible en la version distribuida. Haz siempre primero el dry-run.
+
+## Archivos importantes
+
+No es necesario editar todos estos archivos cada semana:
+
+- configuracion.yaml: configuracion sencilla para el usuario.
+- config/teams.yaml: nombres, alias y orden de los equipos.
+- config/runtime.yaml: tiempos, fotos, borrados y comportamiento avanzado.
+- config/selectors.yaml: selectores de Elementor; solo se toca si cambia la interfaz de WordPress.
+- config.py: compatibilidad con configuraciones antiguas; no es la opcion recomendada.
+
+La configuracion unificada configuracion.yaml tiene prioridad para las rutas, URLs y opciones de uso diario.
+
+## Seguridad y comportamiento conservador
+
+- No se guardan contrasenas en YAML.
+- La sesion de WordPress queda guardada localmente.
+- No se modifica el HTML global del post.
+- La edicion se hace widget a widget dentro de Elementor.
+- Si un widget no se encuentra, se registra el error y se continua cuando es seguro.
+- Si hay errores de equipo, la herramienta puede bloquear el guardado para evitar una entrada a medio actualizar.
+- Se generan logs legibles, logs JSONL, un plan de ejecucion y capturas.
+- Antes de editar se puede generar un backup de la configuracion y del plan.
+- La publicacion final siempre requiere una accion manual.
+
+## Donde mirar si algo falla
+
+Cada ejecucion deja sus resultados en:
+
+- output/: Word parseado y plan de ejecucion.
+- logs/: log legible y log JSONL.
+- screenshots/: capturas antes, despues y de errores.
+- storage/: sesion local de Playwright.
+
+### WordPress pide login otra vez
+
+Ejecuta auth-login, haz el login manual y guarda la sesion. Despues repite el dry-run y la actualizacion.
+
+### El dry-run dice que falta un equipo
+
+Busca el bloque en el Word y revisa el nombre del equipo. Si el equipo aparece con un patrocinador o una variante de nombre, añade un alias en config/teams.yaml.
+
+### El dry-run dice mapeo ambiguo
+
+No actualices. Revisa el resultado, el encabezado y los alias. Añade un alias mas especifico o corrige el Word.
+
+### No hay ZIP de fotos
+
+Pon photos_zip_available: false. La herramienta no intentara abrir un ZIP inexistente y usara el escudo del club cuando no haya foto de equipo.
+
+### Elementor no encuentra un widget
+
+No publiques. Revisa la captura de error y los logs. Si ha cambiado la interfaz de Elementor, ajusta primero config/selectors.yaml.
+
+### Una entrada queda a medio actualizar
+
+No pulses publicar. Conserva la carpeta de output, logs y screenshots para diagnostico y vuelve a ejecutar despues de corregir el problema.
+
+## Para desarrolladores
+
+Si se quiere ejecutar desde el codigo fuente:
+
+1. Instala Python 3.11 o superior.
+2. Ejecuta install_windows.bat.
+3. Copia configuracion.example.yaml a configuracion.yaml.
+4. Ejecuta wordpress_sync.bat gui.
+
+Los tests se ejecutan con:
+
+~~~powershell
+python -m unittest discover -s tests -q
+~~~
+
+La logica esta separada en parser, normalizador, mapper, planner y adaptadores de Elementor para que los cambios de WordPress no afecten al resto del proyecto.
