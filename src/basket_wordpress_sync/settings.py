@@ -172,7 +172,9 @@ def load_settings(
         prefer_visual_text_editor=bool(defaults.get("prefer_visual_text_editor", True)),
         empty_chronicle_placeholder=str(defaults.get("empty_chronicle_placeholder", "-")),
         photo_fallback_name=str(defaults.get("photo_fallback_name", "basket_aranjuez.png")),
-        photos_zip_available=bool(app_config.wordpress_sync_has_photos_zip),
+        photos_zip_available=bool(
+            defaults.get("photos_zip_available", app_config.wordpress_sync_has_photos_zip)
+        ),
         photos_zip_path=_resolve_config_path(
             root_dir, defaults.get("photos_zip_path", app_config.wordpress_sync_photos_zip_path)
         )
