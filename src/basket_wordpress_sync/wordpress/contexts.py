@@ -5,6 +5,7 @@ from pathlib import Path
 import re
 import time
 from typing import Any
+from urllib.parse import parse_qs, urlsplit
 
 from ..normalizer.text import normalize_lookup_key
 
@@ -82,6 +83,7 @@ class TeamSectionAnchor:
     widget_catalog: list[dict[str, Any]] = field(default_factory=list)
     current_widget: dict[str, Any] | None = None
     structured_fields_cache: dict[str, dict[str, Any]] = field(default_factory=dict)
+    strict_fields: bool = False
 
     @classmethod
     def locate(
@@ -235,6 +237,37 @@ class TeamSectionAnchor:
         return field_name in self.available_field_names()
 
     def remove_entire_block(self) -> bool:
+        if getattr(self, "strict_fields", False):
+            anchor_ids = [str(item.get("dataId") or "") for item in self._team_anchor_widgets()]
+            heading_id = self._data_id_for_locator(self.heading_locator)
+            removed = self.preview.page.evaluate(
+                """({headingId, anchorIds}) => {
+                  const operation = async () => {
+                    const root = window.elementor?.documents?.getCurrent?.()?.container;
+                    if (!root || !window.$e) throw new Error('Elementor no esta preparado');
+                    const contains = (node, id) => node.id === id || (node.children || []).some(child => contains(child, id));
+                    const children = [...root.children];
+                    const start = children.findIndex(node => contains(node, headingId));
+                    if (start < 0) throw new Error('No se encuentra el inicio estructural del equipo');
+                    const anchorsInStart = anchorIds.filter(id => contains(children[start], id));
+                    if (anchorsInStart.length !== 1) throw new Error('Varios equipos comparten un contenedor; no se elimina');
+                    let end = children.findIndex((node, index) => index > start && anchorIds.some(id => contains(node, id)));
+                    if (end < 0) end = children.length;
+                    const targets = children.slice(start, end);
+                    for (const container of targets.reverse()) {
+                      await window.$e.run('document/elements/delete', {container});
+                    }
+                    const remains = root.children.some(node => targets.some(target => target.id === node.id));
+                    if (remains) throw new Error('Elementor conserva contenedores del equipo');
+                    return targets.length > 0;
+                  };
+                  return Promise.race([operation(), new Promise((_, reject) => setTimeout(() => reject(new Error('No se confirma la eliminacion en 15 segundos')), 15000))]);
+                }""",
+                {"headingId": heading_id, "anchorIds": anchor_ids},
+            )
+            if removed:
+                self.preview.page.wait_for_timeout(500)
+            return bool(removed)
         data_ids = self._block_removal_data_ids()
         for locator in (self.root_locator, self.heading_locator):
             data_id = self._data_id_for_locator(locator)
@@ -797,7 +830,60 @@ class TeamSectionAnchor:
             """,
             [top, bottom],
         )
+        post_ids = parse_qs(urlsplit(str(getattr(self.preview.page, "url", ""))).query).get("post", [])
+        if post_ids and post_ids[0].isdigit():
+            allowed_ids = set(root.locator(f'.elementor[data-elementor-id="{post_ids[0]}"] [data-id]').evaluate_all("nodes => nodes.map(n => n.getAttribute('data-id'))"))
+            elements = [item for item in elements if item.get("dataId") in allowed_ids]
         return [dict(item) for item in elements]
+
+    def set_team_photo_media(self, media: dict) -> str:
+        dedicated = self.preview.locator(".basket-sync-team-photo")
+        top, bottom = self._block_bounds()
+        target_id = ""
+        for index in range(dedicated.count()):
+            candidate = dedicated.nth(index)
+            position = candidate.evaluate("node => node.getBoundingClientRect().top + window.scrollY")
+            if top <= position < bottom:
+                target_id = candidate.get_attribute("data-id") or ""
+                break
+        chronicle = self.field_locator("chronicle_text")
+        chronicle_id = chronicle.get_attribute("data-id")
+        if not chronicle_id:
+            chronicle_id = chronicle.evaluate("node => node.closest('[data-id]')?.getAttribute('data-id')")
+        result = self.preview.page.evaluate(
+            """({targetId, chronicleId, media}) => {
+              const operation = async () => {
+              const root = window.elementor?.documents?.getCurrent?.()?.container;
+              const find = (node, id) => {
+                if (!node) return null;
+                if (node.id === id) return node;
+                for (const child of node.children || []) { const found = find(child, id); if (found) return found; }
+                return null;
+              };
+              if (!root || !window.$e) throw new Error('Elementor no esta preparado');
+              let target = targetId ? find(root, targetId) : null;
+              if (target) {
+                await window.$e.run('document/elements/settings', {container: target, settings: {image: media}});
+              } else {
+                const chronicle = find(root, chronicleId);
+                if (!chronicle?.parent) throw new Error('No hay un contenedor de cronica inequivoco');
+                const index = chronicle.parent.children.findIndex(child => child.id === chronicle.id);
+                target = await window.$e.run('document/elements/create', {
+                  container: chronicle.parent,
+                  model: {elType: 'widget', widgetType: 'image', settings: {
+                    image: media, image_size: 'medium', align: 'center',
+                    width: {unit: 'px', size: 320}, _css_classes: 'basket-sync-team-photo'
+                  }, elements: []}, options: {at: index}
+                });
+              }
+              return target?.id || 'created';
+              };
+              return Promise.race([operation(), new Promise((_, reject) => setTimeout(() => reject(new Error('Elementor no confirma la foto en 15 segundos')), 15000))]);
+            }""",
+            {"targetId": target_id, "chronicleId": chronicle_id, "media": media},
+        )
+        self.structured_fields_cache.clear()
+        return str(result)
 
     def team_photo_container_locators(self) -> list[Any]:
         candidates: list[Any] = []

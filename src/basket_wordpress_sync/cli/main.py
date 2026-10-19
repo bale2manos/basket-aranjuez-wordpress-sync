@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import date
 from pathlib import Path
 
 from ..artifacts import create_run_artifacts
@@ -23,6 +24,7 @@ ROOT_DIR = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Automatizador local de WordPress/Elementor para Basket Aranjuez.")
+    parser.add_argument("--version", action="version", version="Basket WordPress Sync 2.0.0")
     parser.add_argument("--config-dir", type=Path)
     parser.add_argument("--config-file", type=Path, help="Archivo unificado de configuracion.")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -36,6 +38,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     dry_run_all_parser = subparsers.add_parser("dry-run-all", help="Genera el dry-run de todas las secciones configuradas.")
     dry_run_all_parser.add_argument("--docx", type=Path)
+    dry_run_all_parser.add_argument("--sections", nargs="+", help="Solo estas secciones.")
 
     preflight_parser = subparsers.add_parser("preflight", help="Comprueba archivos, URLs, sesion y configuracion sin abrir WordPress.")
     preflight_parser.add_argument("--docx", type=Path)
@@ -58,6 +61,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     update_all_parser = subparsers.add_parser("update-all", help="Actualiza automáticamente todas las secciones configuradas.")
     update_all_parser.add_argument("--docx", type=Path)
+    update_all_parser.add_argument("--sections", nargs="+", help="Solo estas secciones.")
     update_all_parser.add_argument("--site-key")
     update_all_parser.add_argument("--yes", action="store_true", help="Confirma la actualizacion sin preguntar.")
 
@@ -69,6 +73,12 @@ def build_parser() -> argparse.ArgumentParser:
     update_weekend_parser.add_argument("--yes", action="store_true", help="Confirma la actualizacion sin preguntar.")
 
     subparsers.add_parser("gui", help="Abre el asistente grafico para el flujo semanal.")
+    discovery = subparsers.add_parser("discover-season", help="Inspecciona la temporada en modo lectura; no abre el editor.")
+    discovery.add_argument("--since", type=date.fromisoformat, default=date(2026, 8, 1))
+    discovery.add_argument("--site-key")
+    week = subparsers.add_parser("discover-week", help="Detecta borradores de una jornada sin abrir ni modificar cronicas.")
+    week.add_argument("--weekend", type=date.fromisoformat, required=True, help="Sabado, en formato AAAA-MM-DD")
+    week.add_argument("--site-key")
     return parser
 
 
@@ -77,6 +87,43 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     settings = load_settings(ROOT_DIR, args.config_dir, args.config_file)
 
+    if args.command == "discover-week":
+        from ..discovery import inspect_saved_session, site_origin
+
+        site = settings.site(_resolve_site_key(args.site_key, settings))
+        try:
+            report = inspect_saved_session(site_origin(site.login_url), ROOT_DIR / site.storage_state_path, weekend=args.weekend)
+        except (OSError, ValueError, RuntimeError) as exc:
+            print(f"No se pudo inspeccionar la jornada: {exc}")
+            return 1
+        target = ROOT_DIR / settings.runtime.output_dir / "week_discovery.json"
+        _write_json(target, report)
+        for section, url in report["entry_urls"].items():
+            print(f"Borrador: {section}: {url}")
+        for item in report["protected"]:
+            print(f"Protegida: {item['title']} ({item['status']})")
+        for error in report["errors"]:
+            print(f"ERROR: {error}")
+        print(f"Informe: {target}")
+        return 1 if report["errors"] or not report["entry_urls"] else 0
+
+    if args.command == "discover-season":
+        from ..discovery import SeasonDiscovery, discovery_report, site_origin
+
+        site = settings.site(_resolve_site_key(args.site_key, settings))
+        entries = SeasonDiscovery(site_origin(site.login_url)).fetch(since=args.since)
+        report = discovery_report(entries, args.since)
+        target = ROOT_DIR / settings.runtime.output_dir / "season_discovery.json"
+        _write_json(target, report)
+        print("Inspeccion de temporada (solo lectura):")
+        for section, data in report["sections"].items():
+            print(f"\n{section}: {len(data['teams'])} equipos visibles")
+            for team in data["teams"]:
+                print(f"- {team}")
+        for note in report["notes"]:
+            print(f"AVISO: {note}")
+        print(f"Informe: {target}")
+        return 0
     if args.command == "auth-login":
         return _run_auth_login(args, settings)
     if args.command == "dry-run":
@@ -88,7 +135,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "gui":
         from ..gui import run_gui
 
-        run_gui(ROOT_DIR, args.config_dir)
+        run_gui(ROOT_DIR, args.config_dir, args.config_file)
         return 0
     if args.command == "update-block":
         return _run_update_block(args, settings)
@@ -130,14 +177,14 @@ def _run_dry_run(args: argparse.Namespace, settings) -> int:
     _write_json(artifacts.output_dir / "run_plan.json", plan)
     print(_format_plan_summary(section, settings, plan, chronicles))
     print(f"Artefactos: {artifacts.output_dir}")
-    return 0
+    return 1 if any(event.level == "error" for event in plan.errors) else 0
 
 
 def _run_dry_run_all(args: argparse.Namespace, settings) -> int:
     docx_path = _resolve_docx_path(args.docx, settings)
     chronicles = _parse_chronicles(docx_path, settings)
     has_errors = False
-    for section in settings.configured_sections():
+    for section in _selected_sections(args, settings):
         artifacts = create_run_artifacts(ROOT_DIR, settings.runtime, f"dry_run_{section}")
         plan = _build_section_plan(section, chronicles, settings)
         _write_json(artifacts.output_dir / "parsed_chronicles.json", chronicles)
@@ -206,11 +253,21 @@ def _run_update_all(args: argparse.Namespace, settings) -> int:
     docx_path = _resolve_docx_path(args.docx, settings)
     site_key = _resolve_site_key(args.site_key, settings)
     chronicles = _parse_chronicles(docx_path, settings)
-    if not _prepare_update(args, settings, docx_path, site_key, settings.configured_sections()):
+    sections = _selected_sections(args, settings)
+    invalid = False
+    for section in sections:
+        plan = _build_section_plan(section, chronicles, settings)
+        if any(event.level == "error" for event in plan.errors):
+            print(_format_plan_summary(section, settings, plan, chronicles))
+            invalid = True
+    if invalid:
+        print("Corrige el mapeo antes de actualizar. No se ha abierto ninguna entrada.")
+        return 1
+    if not _prepare_update(args, settings, docx_path, site_key, sections):
         return 1
     statuses: dict[str, dict[str, object]] = {}
 
-    for section in settings.configured_sections():
+    for section in sections:
         entry_url = _resolve_entry_url(section, None, settings)
         statuses[section] = _execute_section_update(
             section=section,
@@ -223,7 +280,7 @@ def _run_update_all(args: argparse.Namespace, settings) -> int:
 
     print("")
     print("Resumen global:")
-    for section in settings.configured_sections():
+    for section in sections:
         status = statuses[section]
         print(f"- {section}: {len(status['successful'])} OK, {len(status['failed'])} fallidos")
     return 0 if all(not status["failed"] and not status["save_blocked"] for status in statuses.values()) else 1
@@ -460,6 +517,11 @@ def _require_known_section(section: str, settings) -> str:
         known = ", ".join(settings.configured_sections())
         raise ValueError(f"Sección desconocida: {section}. Secciones configuradas: {known}")
     return available[normalized]
+
+
+def _selected_sections(args: argparse.Namespace, settings) -> list[str]:
+    values = getattr(args, "sections", None) or settings.configured_sections()
+    return list(dict.fromkeys(_require_known_section(value, settings) for value in values))
 
 
 def _write_json(path: Path, payload) -> None:

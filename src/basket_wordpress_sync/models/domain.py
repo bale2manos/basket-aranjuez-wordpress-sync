@@ -61,6 +61,8 @@ class TeamConfig:
     display_competition: str | None = None
     display_group: str | None = None
     expected_order: int = 0
+    match_rules: list[dict[str, str]] = field(default_factory=list)
+    anchor_aliases: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)

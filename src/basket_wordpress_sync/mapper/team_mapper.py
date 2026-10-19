@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 
 from ..models import MappedChronicle, ParsedChronicle, RunEvent, TeamConfig
 from ..normalizer.text import normalize_lookup_key
@@ -143,6 +144,18 @@ class TeamMapper:
         )
 
     def _score_candidate(self, team: TeamConfig, chronicle: ParsedChronicle, relative_order: int) -> CandidateScore:
+        if team.match_rules:
+            basket_name = chronicle.home_team if chronicle.basket_is_home else chronicle.away_team
+            for rule in team.match_rules:
+                heading_ok = normalize_lookup_key(rule.get("heading", "")) == chronicle.normalized_heading
+                competition_ok = all(
+                    re.search(r"(?:^| )" + re.escape(normalize_lookup_key(part)) + r"(?: |$)", normalize_lookup_key(" ".join(chronicle.competition_lines))) is not None
+                    for part in rule.get("competition", "").split("|") if part
+                )
+                basket_ok = not rule.get("basket_name") or normalize_lookup_key(rule["basket_name"]) == normalize_lookup_key(basket_name or "")
+                if heading_ok and competition_ok and basket_ok:
+                    return CandidateScore(team, 1.0, ["mapped_by_season_rule"], True, 0.0)
+            return CandidateScore(team, 0.0, [], False, 0.0)
         heading_text = chronicle.normalized_heading
         competition_text = normalize_lookup_key(" ".join(chronicle.competition_lines))
         result_text = normalize_lookup_key(

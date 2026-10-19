@@ -1,5 +1,6 @@
 # Configuracion principal para el uso semanal. Puedes editarla desde la GUI.
 site_key: "basket-aranjuez"
+season: "2026-27"
 docx_path: "resultados/Cronicas.docx"
 photos_zip_available: false
 photos_zip_path: ""

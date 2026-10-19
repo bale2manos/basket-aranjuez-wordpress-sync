@@ -13,6 +13,8 @@ from ..models import DeletionPlan, MappedChronicle
 from ..normalizer.text import build_period_labels, format_competition_display, format_score, format_team_display
 from ..photo_repository import PhotoRepository
 from .adapters import BackgroundContainerAdapter, HeaderWidgetAdapter, ImageWidgetAdapter, TextEditorWidgetAdapter
+from .target_guard import require_unpublished_target
+from ..discovery import site_origin
 from .contexts import PreviewContext, SidePanelContext, TeamSectionAnchor, count_team_anchors, duplicate_ordered_team_block
 
 
@@ -179,6 +181,7 @@ class ElementorUpdateService:
                 preview.screenshot(screenshot_after)
                 changed = changed_count > 0
                 if changed:
+                    require_unpublished_target(context.request, entry_url, {site_origin(site.login_url) for site in self.settings.sites.values()})
                     side_panel.click_save()
                     page.wait_for_timeout(self.settings.runtime.timeouts.get("save_ms", 15000))
                 page.screenshot(path=str(screenshot_final), full_page=True)
@@ -244,6 +247,7 @@ class ElementorUpdateService:
 
                 for mapped in mapped_chronicles:
                     team_name = mapped.team_config.web_block_name
+                    self.event_logger.record("info", "team_update_start", f"Actualizando bloque: {team_name}")
                     screenshot_before = self.artifacts.screenshot_dir / f"{team_name}_before.png"
                     screenshot_after = self.artifacts.screenshot_dir / f"{team_name}_after.png"
                     try:
@@ -313,6 +317,7 @@ class ElementorUpdateService:
                         )
 
                 if any_changes and not had_team_error:
+                    require_unpublished_target(context.request, entry_url, {site_origin(site.login_url) for site in self.settings.sites.values()})
                     side_panel.click_save()
                     page.wait_for_timeout(self.settings.runtime.timeouts.get("save_ms", 15000))
                     result.saved = True
@@ -343,6 +348,15 @@ class ElementorUpdateService:
         browser_factory = getattr(playwright, self.settings.runtime.browser)
         browser = _launch_browser(browser_factory, headless=self.settings.runtime.headless)
         context = browser.new_context(storage_state=str(storage_state_path))
+        if getattr(self.settings.runtime, "protect_published_entries", True):
+            try:
+                require_unpublished_target(
+                    context.request, entry_url,
+                    {site_origin(site.login_url) for site in self.settings.sites.values()},
+                )
+            except Exception:
+                browser.close()
+                raise
         page = context.new_page()
         page.goto(entry_url, wait_until="load", timeout=self.settings.runtime.timeouts.get("navigation_ms", 30000))
         page.wait_for_timeout(self.settings.runtime.timeouts.get("ui_ms", 10000))
@@ -377,10 +391,9 @@ class ElementorUpdateService:
 
         section_boundary_texts = self._section_boundary_texts(mapped_chronicle.team_config.section)
         anchor_candidates = [
-            chronicle.raw_heading,
             mapped_chronicle.team_config.web_block_name,
             mapped_chronicle.team_config.web_block_name.upper(),
-            *mapped_chronicle.team_config.heading_aliases,
+            *(mapped_chronicle.team_config.anchor_aliases if getattr(mapped_chronicle.team_config, "match_rules", []) else mapped_chronicle.team_config.heading_aliases),
         ]
         try:
             anchor = TeamSectionAnchor.locate(
@@ -390,9 +403,11 @@ class ElementorUpdateService:
                 boundary_texts=section_boundary_texts,
                 expected_order=mapped_chronicle.team_config.expected_order,
                 strict_expected_order=False,
-                allow_order_without_heading_match=True,
+                allow_order_without_heading_match=not bool(getattr(mapped_chronicle.team_config, "match_rules", [])),
             )
         except LookupError as exc:
+            if getattr(mapped_chronicle.team_config, "match_rules", []):
+                raise LookupError(f"No existe un bloque inequivoco para '{mapped_chronicle.team_config.web_block_name}'.") from exc
             recovered = self._recover_missing_ordered_block(preview, mapped_chronicle)
             if recovered:
                 anchor = TeamSectionAnchor.locate(
@@ -465,6 +480,7 @@ class ElementorUpdateService:
         return True
 
     def _update_block(self, *, anchor: TeamSectionAnchor, side_panel: SidePanelContext, mapped_chronicle: MappedChronicle) -> int:
+        anchor.strict_fields = bool(getattr(mapped_chronicle.team_config, "match_rules", []))
         chronicle = mapped_chronicle.parsed_chronicle
         assert chronicle is not None
 
@@ -526,7 +542,7 @@ class ElementorUpdateService:
         anchor_candidates = [
             team_config.web_block_name,
             team_config.web_block_name.upper(),
-            *team_config.heading_aliases,
+            *(team_config.anchor_aliases if team_config.match_rules else team_config.heading_aliases),
         ]
         section_boundary_texts = self._section_boundary_texts(team_config.section)
         try:
@@ -537,7 +553,7 @@ class ElementorUpdateService:
                 boundary_texts=section_boundary_texts,
                 expected_order=team_config.expected_order,
                 strict_expected_order=False,
-                allow_order_without_heading_match=True,
+                allow_order_without_heading_match=not bool(team_config.match_rules),
             )
         except LookupError as exc:
             raise SkipBlockUpdate(
@@ -549,6 +565,7 @@ class ElementorUpdateService:
                 f"Se omite '{team_config.web_block_name}' porque la estrategia configurada es skip_and_warn."
             )
         if deletion.delete_mode == "remove_widget_or_container":
+            anchor.strict_fields = bool(team_config.match_rules)
             try:
                 side_panel.dismiss_media_modal()
             except Exception:
@@ -562,6 +579,8 @@ class ElementorUpdateService:
                     team=team_config.web_block_name,
                 )
                 return 1
+            if team_config.match_rules:
+                raise RuntimeError("Elementor no confirma la eliminacion completa del bloque.")
 
         header_adapter = HeaderWidgetAdapter(side_panel)
         text_adapter = TextEditorWidgetAdapter(side_panel)
@@ -600,11 +619,15 @@ class ElementorUpdateService:
         if value is None:
             return 0
         if not anchor.has_field(field_name):
+            if getattr(anchor, "strict_fields", False):
+                raise LookupError(f"Falta el campo obligatorio '{field_name}' en '{anchor.heading_text}'.")
             return 0
         try:
             adapter.update_field(anchor, field_name, value, weight=weight)
             return 1
         except Exception as exc:
+            if getattr(anchor, "strict_fields", False):
+                raise
             self.event_logger.record(
                 "warning",
                 "block_not_found",
@@ -729,12 +752,36 @@ class ElementorUpdateService:
         configured = mapped_chronicle.team_config.display_competition
         if configured:
             return configured
+        if getattr(mapped_chronicle.team_config, "match_rules", []):
+            section = mapped_chronicle.team_config.section
+            heading = chronicle.raw_heading.upper()
+            first = chronicle.competition_title
+            if section == "alevin":
+                suffix = " - ORO" if "ORO" in first.upper() else " - PLATA" if "PLATA" in first.upper() else ""
+                return "LIGA MARCO ALDANY" + suffix
+            if section in {"cadete", "junior", "infantil_femenino", "infantil_masculino"}:
+                category = "INFANTIL" if section.startswith("infantil") else section.upper()
+                gender = "FEMENINO" if "FEMENINO" in heading else "MASCULINO"
+                if "PRIMER A\u00d1O" in heading or "1\u00ba A\u00d1O" in heading:
+                    return f"{category} {gender} 1er A\u00d1O"
+                if "AHORRAMAS" in first.upper():
+                    return f"{category} {gender} {first}"
+                return f"{category} {gender} PREFERENTE"
         return format_competition_display(chronicle.competition_title, heading=chronicle.raw_heading)
 
     def _group_value(self, mapped_chronicle: MappedChronicle, chronicle) -> str:
         configured = mapped_chronicle.team_config.display_group
         if configured:
             return configured
+        if getattr(mapped_chronicle.team_config, "match_rules", []):
+            lines = []
+            for line in chronicle.competition_lines:
+                normalized = line.upper()
+                if any(token in normalized for token in ("GRUPO", "FASE", "PLAYOFF", "FINAL")):
+                    lines.append(line)
+                elif mapped_chronicle.team_config.section in {"junior", "cadete", "infantil_femenino", "infantil_masculino"} and "DIVISI\u00d3N" in normalized:
+                    lines.append(line)
+            return " - ".join(lines) if lines else None
         if mapped_chronicle.team_config.display_competition and not chronicle.group_title:
             return chronicle.competition_title
         return chronicle.group_title
@@ -749,6 +796,8 @@ class ElementorUpdateService:
         players_text: str | None,
     ) -> int:
         if not anchor.has_field(field_name):
+            if getattr(anchor, "strict_fields", False):
+                raise LookupError(f"Falta el campo obligatorio '{field_name}' en '{anchor.heading_text}'.")
             return 0
         try:
             adapter.update_field(
@@ -760,6 +809,8 @@ class ElementorUpdateService:
             )
             return 1
         except Exception as exc:
+            if getattr(anchor, "strict_fields", False):
+                raise
             self.event_logger.record(
                 "warning",
                 "block_not_found",
@@ -776,6 +827,19 @@ class ElementorUpdateService:
         image_adapter: ImageWidgetAdapter,
         mapped_chronicle: MappedChronicle,
     ) -> int:
+        if getattr(mapped_chronicle.team_config, "match_rules", []):
+            from .api import WordPressApi
+
+            resolved = self.photo_repository.resolve_for_team(mapped_chronicle.team_config)
+            if not hasattr(self, "_v2_media_cache"):
+                self._v2_media_cache = {}
+            key = str(resolved.path.resolve())
+            if key not in self._v2_media_cache:
+                api = WordPressApi(anchor.preview.page.context.request, self.settings.site(self.settings.runtime.default_site_key).login_url)
+                self._v2_media_cache[key] = api.resolve_media(resolved.path, reuse=resolved.fallback)
+            anchor.set_team_photo_media(self._v2_media_cache[key])
+            self.event_logger.record("info", "team_photo_updated", f"Foto de equipo actualizada: {mapped_chronicle.team_config.web_block_name}", fallback=resolved.fallback, media_id=self._v2_media_cache[key]["id"])
+            return 1
         if not (anchor.team_photo_container_locators() or anchor.team_image_locators()):
             return 0
         try:

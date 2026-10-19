@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import hashlib
+import json
 import queue
 import subprocess
 import sys
@@ -14,7 +16,7 @@ from ..settings import load_settings
 
 
 class SyncGui:
-    def __init__(self, root, project_root: Path, config_dir: Path | None) -> None:
+    def __init__(self, root, project_root: Path, config_dir: Path | None, config_file: Path | None = None) -> None:
         import tkinter as tk
         from tkinter import filedialog, messagebox, ttk
 
@@ -25,16 +27,19 @@ class SyncGui:
         self.window = root
         self.project_root = project_root.resolve()
         self.config_dir = config_dir
+        self.config_file = (self.project_root / config_file).resolve() if config_file else self.project_root / "configuracion.yaml"
         self.output_queue: queue.Queue[tuple[str, object]] = queue.Queue()
         self.process: subprocess.Popen[str] | None = None
         self.dry_run_ok = False
+        self.validated_fingerprint: str | None = None
+        self.pending_fingerprint: str | None = None
 
-        self.window.title("Basket Aranjuez - WordPress Sync")
-        self.window.geometry("900x700")
+        self.window.title("Basket Aranjuez - WordPress Sync 2.0")
+        self.window.geometry("1000x850")
         self.window.minsize(760, 560)
 
         try:
-            self.settings = load_settings(self.project_root, config_dir)
+            self.settings = load_settings(self.project_root, config_dir, self.config_file)
         except Exception as exc:
             self.settings = None
             self._show_startup_error(str(exc))
@@ -43,13 +48,17 @@ class SyncGui:
         self.docx_var = tk.StringVar(value=self._default_docx())
         self.photos_var = tk.StringVar(value=self._default_photos_zip())
         self.has_photos_var = tk.BooleanVar(value=self.settings.runtime.photos_zip_available)
+        self.weekend_var = tk.StringVar(value="")
         self.url_vars: dict[str, tk.StringVar] = {
             section: tk.StringVar(value=self.settings.runtime.section_entry_urls.get(section, ""))
             for section in self.settings.configured_sections()
         }
+        self.section_vars = {section: tk.BooleanVar(value=bool(variable.get())) for section, variable in self.url_vars.items()}
         self.status_var = tk.StringVar(value="Listo para comprobar la jornada.")
 
         self._build_layout()
+        for variable in (self.docx_var, self.photos_var, self.has_photos_var, self.weekend_var, *self.url_vars.values(), *self.section_vars.values()):
+            variable.trace_add("write", self._invalidate_validation)
         self.window.after(100, self._drain_queue)
 
     def _show_startup_error(self, message: str) -> None:
@@ -74,6 +83,16 @@ class SyncGui:
             main,
             text="Selecciona los archivos, comprueba el dry-run y actualiza solo despues de confirmarlo.",
         ).pack(anchor="w", pady=(2, 12))
+        self.discovery_button = ttk.Button(main, text="Inspeccionar temporada (solo lectura)", command=self._start_discovery)
+        self.discovery_button.pack(anchor="w", pady=(0, 10))
+        self.automatic_button = ttk.Button(main, text="Comprobar y actualizar la jornada", command=self._start_automatic)
+        self.automatic_button.pack(anchor="w", pady=(0, 10))
+        discovery = ttk.Frame(main)
+        discovery.pack(fill="x", pady=(0, 8))
+        ttk.Label(discovery, text="Sabado de la jornada (AAAA-MM-DD)").pack(side="left")
+        ttk.Entry(discovery, textvariable=self.weekend_var, width=14).pack(side="left", padx=8)
+        self.week_button = ttk.Button(discovery, text="Buscar borradores de esta jornada", command=self._start_week_discovery)
+        self.week_button.pack(side="left")
 
         files = ttk.LabelFrame(main, text="Archivos de esta jornada", padding=10)
         files.pack(fill="x", pady=(0, 10))
@@ -93,7 +112,7 @@ class SyncGui:
         urls = ttk.LabelFrame(main, text="URLs de las entradas", padding=10)
         urls.pack(fill="x", pady=(0, 10))
         for row, section in enumerate(self.url_vars):
-            ttk.Label(urls, text=section, width=24).grid(row=row, column=0, sticky="w", pady=2)
+            ttk.Checkbutton(urls, text=section, variable=self.section_vars[section], width=24).grid(row=row, column=0, sticky="w", pady=2)
             ttk.Entry(urls, textvariable=self.url_vars[section]).grid(row=row, column=1, sticky="ew", padx=(8, 0), pady=2)
         urls.columnconfigure(1, weight=1)
 
@@ -146,6 +165,12 @@ class SyncGui:
         )
         if path:
             self.docx_var.set(path)
+            try:
+                from ..discovery import infer_weekend_from_docx
+
+                self.weekend_var.set(infer_weekend_from_docx(Path(path)).isoformat())
+            except (OSError, ValueError):
+                self.weekend_var.set("")
             self.dry_run_ok = False
             self.update_button.configure(state="disabled")
 
@@ -167,10 +192,15 @@ class SyncGui:
             "entry_urls": {section: variable.get().strip() for section, variable in self.url_vars.items()},
             "section_order": list(self.url_vars),
         }
-        target = self.project_root / "configuracion.yaml"
+        target = self.config_file
         try:
+            if target.exists():
+                existing = yaml.safe_load(target.read_text(encoding="utf-8")) or {}
+                if not isinstance(existing, dict):
+                    raise ValueError("configuracion.yaml debe contener un mapa YAML.")
+                payload = {**existing, **payload}
             target.write_text(yaml.safe_dump(payload, allow_unicode=True, sort_keys=False), encoding="utf-8")
-        except OSError as exc:
+        except (OSError, ValueError, yaml.YAMLError) as exc:
             self.messagebox.showerror("No se pudo guardar", str(exc))
             return False
         self._append_output(f"Configuracion guardada en {target}\n")
@@ -188,9 +218,12 @@ class SyncGui:
             return str(path)
 
     def _runner_command(self, *arguments: str) -> list[str]:
+        options = ["--config-file", str(self.config_file)]
+        if self.config_dir:
+            options.extend(["--config-dir", str(self.config_dir.resolve())])
         if getattr(sys, "frozen", False):
-            return [sys.executable, *arguments]
-        return [sys.executable, str(self.project_root / "wordpress_sync.py"), *arguments]
+            return [sys.executable, *options, *arguments]
+        return [sys.executable, str(self.project_root / "wordpress_sync.py"), *options, *arguments]
 
     def _start_auth(self) -> None:
         self._start_process(
@@ -208,7 +241,14 @@ class SyncGui:
             except OSError as exc:
                 self._append_output(f"No se pudo guardar la sesion: {exc}\n")
 
-    def _start_dry_run(self) -> None:
+    def _start_automatic(self) -> None:
+        self._start_dry_run(automatic=True)
+
+    def _start_dry_run(self, *, automatic: bool = False) -> None:
+        sections = [name for name, variable in self.section_vars.items() if variable.get()]
+        if not sections:
+            self.messagebox.showwarning("Elige las secciones", "Marca al menos una seccion para esta jornada.")
+            return
         if not self._save_config():
             return
         docx = self.docx_var.get().strip()
@@ -216,11 +256,64 @@ class SyncGui:
             self.messagebox.showwarning("Falta el Word", "Selecciona el Word de cronicas antes de continuar.")
             return
         self.dry_run_ok = False
+        self.pending_fingerprint = self._input_fingerprint()
         self.update_button.configure(state="disabled")
-        self._start_process(self._runner_command("dry-run-all", "--docx", docx), mode="dry-run")
+        self._start_process(self._runner_command("dry-run-all", "--docx", docx, "--sections", *sections), mode="auto-check" if automatic else "dry-run")
+
+    def _start_discovery(self) -> None:
+        self._start_process(self._runner_command("discover-season"), mode="discovery")
+
+    def _start_week_discovery(self) -> None:
+        from datetime import date
+
+        try:
+            if not self.weekend_var.get().strip():
+                from ..discovery import infer_weekend_from_docx
+
+                self.weekend_var.set(infer_weekend_from_docx(Path(self.docx_var.get())).isoformat())
+            weekend = date.fromisoformat(self.weekend_var.get().strip())
+            if weekend.weekday() != 5:
+                raise ValueError("La fecha debe ser un sabado.")
+        except ValueError as exc:
+            self.messagebox.showwarning("Fecha de jornada", f"Introduce el sabado en formato AAAA-MM-DD. {exc}")
+            return
+        self._invalidate_validation()
+        self._start_process(self._runner_command("discover-week", "--weekend", weekend.isoformat()), mode="week-discovery")
+
+    def _invalidate_validation(self, *_args) -> None:
+        self.dry_run_ok = False
+        self.validated_fingerprint = None
+        self.update_button.configure(state="disabled")
+
+    def _input_fingerprint(self) -> str:
+        digest = hashlib.sha256()
+        for variable in (self.docx_var, self.photos_var, self.has_photos_var, *self.url_vars.values(), *self.section_vars.values()):
+            digest.update(repr(variable.get()).encode("utf-8"))
+            digest.update(b"\0")
+        paths = [self.docx_var.get(), str(self.config_file)]
+        if self.has_photos_var.get():
+            paths.append(self.photos_var.get())
+        config_root = self.config_dir or self.project_root / "config"
+        paths.extend(str(config_root / name) for name in ("teams.yaml", "runtime.yaml", "selectors.yaml"))
+        paths.extend(str(path) for path in sorted((config_root / "seasons").glob("*/teams.yaml")))
+        for value in paths:
+            path = Path(value)
+            if not path.is_absolute():
+                path = self.project_root / path
+            try:
+                with path.open("rb") as handle:
+                    for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                        digest.update(chunk)
+            except OSError:
+                digest.update(b"missing")
+        return digest.hexdigest()
 
     def _start_update(self) -> None:
         if not self.dry_run_ok:
+            return
+        if self.validated_fingerprint != self._input_fingerprint():
+            self._invalidate_validation()
+            self.messagebox.showwarning("La jornada ha cambiado", "Repite la comprobacion: se han cambiado archivos o configuracion.")
             return
         if not self.messagebox.askyesno(
             "Confirmar actualizacion",
@@ -230,7 +323,7 @@ class SyncGui:
         if not self._save_config():
             return
         self._start_process(
-            self._runner_command("update-all", "--docx", self.docx_var.get().strip(), "--yes"),
+            self._runner_command("update-all", "--docx", self.docx_var.get().strip(), "--yes", "--sections", *[name for name, var in self.section_vars.items() if var.get()]),
             mode="update",
         )
 
@@ -282,15 +375,40 @@ class SyncGui:
         self._set_action_state("normal")
         if mode == "auth":
             self.login_done_button.configure(state="disabled")
-        if mode == "dry-run" and code == 0:
-            self.dry_run_ok = True
-            self.update_button.configure(state="normal")
+        if mode in {"dry-run", "auto-check"} and code == 0:
+            if self.pending_fingerprint == self._input_fingerprint():
+                self.dry_run_ok = True
+                self.validated_fingerprint = self.pending_fingerprint
+                self.update_button.configure(state="normal")
+            else:
+                self._invalidate_validation()
+                self._append_output("Los archivos cambiaron durante la comprobacion. Vuelve a comprobar.\n")
+        if mode == "update":
+            self._invalidate_validation()
+        if mode == "week-discovery" and code == 0:
+            try:
+                path = self.project_root / self.settings.runtime.output_dir / "week_discovery.json"
+                report = json.loads(path.read_text(encoding="utf-8"))
+                if report["weekend"] != self.weekend_var.get().strip():
+                    raise ValueError("La fecha del informe no coincide con la jornada seleccionada.")
+                for section, variable in self.url_vars.items():
+                    url = report["entry_urls"].get(section, "")
+                    variable.set(url)
+                    self.section_vars[section].set(bool(url))
+                self._append_output("Borradores cargados. Las secciones publicadas o ambiguas quedan desmarcadas.\n")
+            except (OSError, ValueError, KeyError) as exc:
+                self._append_output(f"No se pueden cargar los borradores: {exc}\n")
         self.status_var.set("Operacion completada correctamente." if code == 0 else "Operacion detenida con errores.")
         self._append_output(f"\nProceso terminado con codigo {code}.\n")
+        if mode == "auto-check" and self.dry_run_ok:
+            self.window.after(0, self._start_update)
 
     def _set_action_state(self, state: str) -> None:
         self.auth_button.configure(state=state)
         self.dry_button.configure(state=state)
+        self.discovery_button.configure(state=state)
+        self.automatic_button.configure(state=state)
+        self.week_button.configure(state=state)
         self.update_button.configure(state="normal" if state == "normal" and self.dry_run_ok else "disabled")
 
     def _append_output(self, value: str) -> None:
@@ -308,12 +426,12 @@ class SyncGui:
             subprocess.Popen(["xdg-open", str(path)])
 
 
-def run_gui(project_root: Path, config_dir: Path | None = None) -> None:
+def run_gui(project_root: Path, config_dir: Path | None = None, config_file: Path | None = None) -> None:
     try:
         import tkinter as tk
     except ImportError as exc:
         raise RuntimeError("Python se instalo sin Tkinter. Usa el instalador oficial de Python para Windows.") from exc
 
     window = tk.Tk()
-    SyncGui(window, project_root, config_dir)
+    SyncGui(window, project_root, config_dir, config_file)
     window.mainloop()

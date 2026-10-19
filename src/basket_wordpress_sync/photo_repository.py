@@ -95,32 +95,22 @@ class PhotoRepository:
         self._assets = []
         self._fallback_path = None
 
-        if not self.photos_dir.exists():
-            self._indexed = True
-            return
-
+        # Only this week's selected ZIP supplies team photos. Loose files may be stale.
         selected_zip = self._selected_zip_path()
-        for path in sorted(self.photos_dir.iterdir(), key=lambda item: item.name.lower()):
-            if path.is_dir():
-                continue
-            suffix = path.suffix.lower()
-            if suffix in IMAGE_SUFFIXES:
-                self._add_image(path, path.name)
-                continue
-            if suffix == ".zip" and self.photos_zip_available and selected_zip is not None and path.resolve() == selected_zip:
-                self._extract_zip(path)
+        fallback = self.photos_dir / self.fallback_name
+        if fallback.is_file():
+            self._add_image(fallback, fallback.name)
+        if selected_zip is not None:
+            self._extract_zip(selected_zip)
 
         self._indexed = True
 
     def _selected_zip_path(self) -> Path | None:
         if not self.photos_zip_available:
             return None
-        if self.photos_zip_path is not None and self.photos_zip_path.exists():
+        if self.photos_zip_path is not None and self.photos_zip_path.is_file():
             return self.photos_zip_path.resolve()
-        zip_candidates = [path for path in self.photos_dir.iterdir() if path.is_file() and path.suffix.lower() == ".zip"]
-        if not zip_candidates:
-            return None
-        return max(zip_candidates, key=lambda path: path.stat().st_mtime).resolve()
+        return None
 
     def _extract_zip(self, zip_path: Path) -> None:
         with zipfile.ZipFile(zip_path) as archive:
@@ -178,7 +168,11 @@ class PhotoRepository:
         return text or "photo"
 
     def _alias_key(self, value: str) -> str:
-        return normalize_lookup_key(value).replace(" ", "")
+        key = normalize_lookup_key(value).replace(" ", "")
+        key = re.sub(r"(?<=\d)(?:O|ER)(?=ANO)", "", key)
+        for source, target in (("ALEVIN", "ALEV"), ("INFANTIL", "INF"), ("CADETE", "CAD"), ("JUNIOR", "JUN"), ("FEMENINO", "FEM"), ("MASCULINO", "MASC"), ("PRIMERANO", "1ANO"), ("SEGUNDOANO", "2ANO"), ("TAPERIAPOSTAS", "POSTASTAPERIA")):
+            key = key.replace(source, target)
+        return key
 
     def _match_score(self, alias_key: str, photo_key: str) -> int:
         if not alias_key or not photo_key:

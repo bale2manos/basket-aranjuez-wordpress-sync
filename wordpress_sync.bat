@@ -8,7 +8,11 @@ if not exist ".venv\Scripts\python.exe" (
   exit /b 1
 )
 
-call ".venv\Scripts\python.exe" wordpress_sync.py %*
+if "%~1"=="" (
+  call ".venv\Scripts\python.exe" wordpress_sync.py gui
+) else (
+  call ".venv\Scripts\python.exe" wordpress_sync.py %*
+)
 set "EXIT_CODE=%ERRORLEVEL%"
 echo.
 pause

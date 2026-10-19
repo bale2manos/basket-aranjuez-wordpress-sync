@@ -124,6 +124,7 @@ def _apply_unified_config(
         "site_key": "default_site_key",
         "entry_urls": "section_entry_urls",
         "section_order": "section_order",
+        "season": "season",
     }
     for source_key, target_key in aliases.items():
         value = unified.get(source_key)
@@ -139,10 +140,10 @@ def load_settings(
     root_dir: Path,
     config_dir: Path | None = None,
     unified_config_path: Path | None = None,
+    *, season: str | None = None,
 ) -> LoadedSettings:
     config_root = (config_dir or (root_dir / "config")).resolve()
     app_config = default_config()
-    teams_payload = _read_yaml(config_root / "teams.yaml")
     runtime_payload = _read_yaml(config_root / "runtime.yaml")
     unified_path = unified_config_path
     if unified_path is not None and not unified_path.is_absolute():
@@ -154,6 +155,11 @@ def load_settings(
     defaults = runtime_payload.get("defaults") or {}
     if not isinstance(defaults, dict):
         raise ValueError("runtime.yaml > defaults debe ser un mapa.")
+    season = season or str(defaults.get("season", "2026-27"))
+    season_teams = config_root / "seasons" / season / "teams.yaml"
+    if season not in {"2026-27", "legacy"}:
+        raise ValueError(f"Temporada desconocida: {season}")
+    teams_payload = _read_yaml(season_teams if season != "legacy" and season_teams.exists() else config_root / "teams.yaml")
 
     runtime = RuntimeSettings(
         logs_dir=Path(str(defaults.get("logs_dir", "logs"))),
@@ -243,6 +249,8 @@ def load_settings(
                     display_competition=str(item.get("display_competition", "")).strip() or None,
                     display_group=str(item.get("display_group", "")).strip() or None,
                     expected_order=int(item.get("expected_order", 0) or 0),
+                    match_rules=list(item.get("match_rules") or []),
+                    anchor_aliases=list(item.get("anchor_aliases") or []),
                 )
             )
 

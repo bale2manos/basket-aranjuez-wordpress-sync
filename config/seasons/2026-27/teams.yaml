@@ -1,0 +1,119 @@
+season: 2026-27
+sections:
+  alevin:
+    teams:
+      - web_block_name: Alevín Femenino 1º año Rubiocar
+        expected_order: 1
+        match_rules: [{heading: ALEVÍN FEMENINO PRIMER AÑO, competition: GRUPO 8}]
+      - web_block_name: Alevín Femenino 2º año Blanco
+        expected_order: 2
+        match_rules: [{heading: ALEVÍN FEMENINO SEGUNDO AÑO, competition: GRUPO 3}]
+      - web_block_name: Alevín Femenino 2º año Negro
+        expected_order: 3
+        match_rules: [{heading: ALEVÍN FEMENINO SEGUNDO AÑO, competition: GRUPO 8}]
+      - web_block_name: Alevín Masculino 1º año
+        expected_order: 4
+        match_rules: [{heading: ALEVÍN MASCULINO PRIMER AÑO, competition: GRUPO 6}]
+      - web_block_name: Alevín Masculino 2º año CAS
+        expected_order: 5
+        match_rules: [{heading: ALEVÍN MASCULINO SEGUNDO AÑO, competition: GRUPO 12}]
+      - web_block_name: Alevín Masculino 2º año Negro
+        expected_order: 6
+        match_rules: [{heading: ALEVÍN MASCULINO SEGUNDO AÑO, competition: GRUPO 13}]
+  infantil_femenino:
+    teams:
+      - web_block_name: Infantil Femenino 1º año Postas Tapería
+        expected_order: 1
+        match_rules: [{heading: INFANTIL FEMENINO PRIMER AÑO, competition: GRUPO 3}]
+      - web_block_name: Infantil Femenino 1º año Negro
+        expected_order: 2
+        match_rules: [{heading: INFANTIL FEMENINO PRIMER AÑO, competition: GRUPO 8}]
+      - web_block_name: Infantil Femenino 2º año Blanco
+        expected_order: 3
+        match_rules: [{heading: INFANTIL FEMENINO, competition: PRIMERA DIVISIÓN}]
+      - web_block_name: Infantil Femenino 2º año Negro
+        expected_order: 4
+        match_rules: [{heading: INFANTIL FEMENINO, competition: SEGUNDA DIVISIÓN}]
+      - web_block_name: Infantil Femenino 2º año Postas Tapería
+        expected_order: 5
+        match_rules: [{heading: INFANTIL FEMENINO, competition: LIGA AHORRAMAS}]
+  infantil_masculino:
+    teams:
+      - web_block_name: Infantil Masculino 1º año Clínica Richer
+        expected_order: 1
+        match_rules: [{heading: INFANTIL MASCULINO PRIMER AÑO, competition: GRUPO 5}]
+      - web_block_name: Infantil Masculino 1º año Negro
+        expected_order: 2
+        match_rules: [{heading: INFANTIL MASCULINO PRIMER AÑO, competition: GRUPO 13}]
+      - web_block_name: Infantil Masculino 2º año Blanco
+        expected_order: 3
+        match_rules: [{heading: INFANTIL MASCULINO, competition: LIGA AHORRAMAS}]
+      - web_block_name: Infantil Masculino 2º año Negro
+        expected_order: 4
+        match_rules: [{heading: INFANTIL MASCULINO, competition: PRIMERA DIVISIÓN}]
+      - web_block_name: Infantil Masculino 2º año Amarillo
+        expected_order: 5
+        match_rules: [{heading: INFANTIL MASCULINO, competition: TERCERA DIVISIÓN}]
+  cadete:
+    teams:
+      - web_block_name: Cadete Femenino 1º año D12 Sport Clinic
+        expected_order: 1
+        match_rules: [{heading: CADETE FEMENINO 1º AÑO, competition: GRUPO 2}]
+      - web_block_name: Cadete Femenino 2º año Blanco
+        expected_order: 2
+        match_rules: [{heading: CADETE FEMENINO, competition: PRIMERA DIVISIÓN}]
+      - web_block_name: Cadete Femenino 2º año Negro
+        expected_order: 3
+        match_rules: [{heading: CADETE FEMENINO, competition: SEGUNDA DIVISIÓN}]
+      - web_block_name: Cadete Masculino 1º año
+        expected_order: 4
+        match_rules: [{heading: CADETE MASCULINO PRIMER AÑO, competition: GRUPO 1}]
+      - web_block_name: Cadete Masculino 2º año Blanco
+        anchor_aliases: [Cadete Masculino 2º año]
+        expected_order: 5
+        match_rules: [{heading: CADETE MASCULINO, competition: PRIMERA DIVISIÓN}]
+      - web_block_name: Cadete Masculino 2º año Negro
+        expected_order: 6
+        match_rules: [{heading: CADETE MASCULINO, competition: SEGUNDA DIVISIÓN}]
+  junior:
+    teams:
+      - web_block_name: Junior Femenino Esencial Salud
+        expected_order: 1
+        match_rules: [{heading: JUNIOR FEMENINO, competition: PRIMERA DIVISIÓN}]
+      - web_block_name: Junior Femenino Postas Tapería
+        expected_order: 2
+        match_rules: [{heading: JUNIOR FEMENINO, competition: SEGUNDA DIVISIÓN}]
+      - web_block_name: Junior Masculino Mister Pixel
+        expected_order: 3
+        match_rules: [{heading: JUNIOR MASCULINO, competition: PRIMERA DIVISIÓN}]
+      - web_block_name: Junior Masculino B
+        expected_order: 4
+        match_rules: [{heading: JUNIOR MASCULINO, competition: SEGUNDA DIVISIÓN}]
+      - web_block_name: Junior Masculino C
+        expected_order: 5
+        match_rules: [{heading: JUNIOR MASCULINO, competition: QUINTA DIVISIÓN|GRUPO PAR}]
+      - web_block_name: Junior Masculino D
+        expected_order: 6
+        match_rules: [{heading: JUNIOR MASCULINO, competition: QUINTA DIVISIÓN|GRUPO IMPAR}]
+  sub22:
+    teams:
+      - web_block_name: Sub 22 Masculino A
+        expected_order: 1
+        match_rules: [{heading: SUB22 MASCULINO, competition: PLATA}]
+      - web_block_name: Sub 22 Masculino B
+        expected_order: 2
+        match_rules: [{heading: SUB22 MASCULINO, competition: BRONCE}]
+  senior:
+    teams:
+      - web_block_name: Senior Femenino A
+        expected_order: 1
+        match_rules: [{heading: SENIOR FEMENINO, competition: LIGA GINOS}]
+      - web_block_name: Senior Femenino B
+        expected_order: 2
+        match_rules: [{heading: SENIOR FEMENINO, competition: PLATA}]
+      - web_block_name: Senior Masculino Mister Pixel
+        expected_order: 3
+        match_rules: [{heading: SENIOR MASCULINO, competition: GRUPO 2}]
+      - web_block_name: Senior Masculino B
+        expected_order: 4
+        match_rules: [{heading: SENIOR MASCULINO, competition: GRUPO 4}]

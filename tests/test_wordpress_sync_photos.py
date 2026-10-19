@@ -32,6 +32,7 @@ class PhotoRepositoryTests(unittest.TestCase):
                 photos_dir=photos_dir,
                 cache_dir=root / "cache",
                 fallback_name="basket_aranjuez.png",
+                photos_zip_path=photos_dir / "fotos.zip",
             )
             team = TeamConfig(
                 section="alevin",

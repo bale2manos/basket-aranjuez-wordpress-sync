@@ -22,6 +22,9 @@ SCORE_PATTERN = re.compile(r"(?P<home>\d+)\s*[-\u2010\u2011\u2012\u2013\u2014\u2
 RESULT_LINE_PATTERN = re.compile(
     r"^\s*(?P<home_team>.+?)\s+(?P<home_score>\d+)\s*[-\u2010\u2011\u2012\u2013\u2014\u2212]\s*(?P<away_score>\d+)\s+(?P<away_team>.+?)\s*$"
 )
+TEAM_SCORE_LINE_PATTERN = re.compile(
+    r"^\s*(?P<home_team>.+?)\s+(?P<home_score>\d+)\s*[-\u2010\u2011\u2012\u2013\u2014\u2212]\s*(?P<away_team>.+?)\s+(?P<away_score>\d+)\s*$"
+)
 TEAM_CONNECTOR_TOKENS = {"DE", "DEL", "LA", "LAS", "LOS", "EL", "AL", "Y"}
 PLAYERS_PREFIX_RE = re.compile(r"^(JUGADOR(?:ES|AS)?|1º\s*ENTRENADOR|2º\s*ENTRENADOR|ENTRENADOR(?:ES)?):", re.IGNORECASE)
 
@@ -65,9 +68,10 @@ class ChronicleParser:
         document = Document(str(docx_path))
         paragraphs: list[str] = []
         for paragraph in document.paragraphs:
-            text = compact_whitespace(paragraph.text)
-            if text:
-                paragraphs.append(text)
+            for line in paragraph.text.splitlines():
+                text = compact_whitespace(line)
+                if text:
+                    paragraphs.append(text)
         return paragraphs
 
     def _split_blocks(self, paragraphs: list[str]) -> list[list[str]]:
@@ -240,6 +244,8 @@ class ChronicleParser:
             return None
         result_match = RESULT_LINE_PATTERN.match(compact_whitespace(value))
         if result_match is None:
+            result_match = TEAM_SCORE_LINE_PATTERN.match(compact_whitespace(value))
+        if result_match is None:
             return None
 
         home_team = result_match.group("home_team").strip(" .,:;!?-–—−")
@@ -307,7 +313,7 @@ class ChronicleParser:
 
     def _parse_partials(self, value: str) -> list[PartialScore]:
         body = value.partition(":")[2] or value
-        normalized = body.replace(";", ",")
+        normalized = re.sub(r"[;/]+", ",", body)
         normalized = re.sub(
             r"(?<=\d)\s+(?=\d+\s*[-\u2010\u2011\u2012\u2013\u2014\u2212]\s*(?:\d+|-))",
             ", ",
@@ -317,6 +323,9 @@ class ChronicleParser:
         parsed_segments: list[tuple[int | None, int | None, str]] = []
         for segment in segments:
             cleaned_segment = segment.strip(" .;:")
+            if re.fullmatch(r"[-\u2010\u2011\u2012\u2013\u2014\u2212]\s*[-\u2010\u2011\u2012\u2013\u2014\u2212]", cleaned_segment):
+                parsed_segments.append((None, None, cleaned_segment))
+                continue
             match = re.fullmatch(r"(?P<home>\d+)?\s*[-\u2010\u2011\u2012\u2013\u2014\u2212]\s*(?P<away>\d+)?", cleaned_segment)
             if match is None:
                 continue

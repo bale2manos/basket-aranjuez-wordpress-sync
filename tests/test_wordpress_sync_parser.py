@@ -187,5 +187,32 @@ class WordPressSyncParserTests(unittest.TestCase):
         self.assertEqual(chronicle.competition_lines, ["DIVISIÓN", "GRUPO 4"])
 
 
+class NewSeasonParserTests(unittest.TestCase):
+    def test_multiline_heading_preserves_full_competition(self):
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "new-season.docx"
+            document = Document()
+            for line in ("JUNIOR FEMENINO\nPRIMERA DIVISI\u00d3N, GRUPO 1", "BASKET ARANJUEZ 40-30 CB RIVAL", "Partido disputado."):
+                document.add_paragraph(line)
+            document.save(path)
+            chronicle = ChronicleParser().parse_docx(path)[0]
+        self.assertEqual(chronicle.raw_heading, "JUNIOR FEMENINO")
+        self.assertEqual(chronicle.competition_lines, ["PRIMERA DIVISI\u00d3N", "GRUPO 1"])
+
+    def test_score_after_each_team(self):
+        result = ChronicleParser()._parse_result_line("BASKET ARANJUEZ B 58 \u2013 La Dehesa CDSCM 74")
+        self.assertIsNotNone(result)
+        self.assertEqual((result.home_team, result.home_score, result.away_team, result.away_score), ("BASKET ARANJUEZ B", 58, "La Dehesa CDSCM", 74))
+
+    def test_double_slash_periods(self):
+        partials = ChronicleParser()._parse_partials("PARCIALES: 8-13//8-18//16-16//14-27")
+        self.assertEqual([(p.home_score, p.away_score) for p in partials], [(8, 13), (8, 18), (16, 16), (14, 27)])
+
+    def test_empty_periods_keep_six_slots(self):
+        partials = ChronicleParser()._parse_partials("PARCIALES: 2-19, 3-19, 2-20, - -, - -, - -.")
+        self.assertEqual(len(partials), 6)
+        self.assertEqual([(p.home_score, p.away_score) for p in partials[3:]], [(None, None)] * 3)
+
+
 if __name__ == "__main__":
     unittest.main()

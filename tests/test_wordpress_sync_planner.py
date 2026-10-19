@@ -20,7 +20,12 @@ from basket_wordpress_sync.models import ParsedChronicle
 from basket_wordpress_sync.normalizer.text import matches_target_section, normalize_lookup_key
 from basket_wordpress_sync.parser import ChronicleParser
 from basket_wordpress_sync.planner import DryRunPlanner
-from basket_wordpress_sync.settings import load_settings
+from basket_wordpress_sync.settings import load_settings as load_current_settings
+
+
+def load_settings(root):
+    # These fixtures exercise the historical 2025/26 aliases, not the new season.
+    return load_current_settings(root, season="legacy")
 
 
 class WordPressSyncPlannerTests(unittest.TestCase):
