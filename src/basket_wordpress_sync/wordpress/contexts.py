@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 import re
 import time
@@ -11,7 +11,7 @@ from ..normalizer.text import normalize_lookup_key
 
 
 SCORE_TEXT_RE = re.compile(r"\d+\s*[-‐‑‒–—−]\s*\d+")
-PERIOD_LABEL_RE = re.compile(r"^(?:\d+[CP]|PR)$", re.IGNORECASE)
+PERIOD_LABEL_RE = re.compile(r"^(?:\d+[CP]|PR\d*|TE\d*)$", re.IGNORECASE)
 NUMERIC_TEXT_RE = re.compile(r"^\d+$")
 
 
@@ -84,6 +84,63 @@ class TeamSectionAnchor:
     current_widget: dict[str, Any] | None = None
     structured_fields_cache: dict[str, dict[str, Any]] = field(default_factory=dict)
     strict_fields: bool = False
+
+    def match_anchors(self) -> list["TeamSectionAnchor"]:
+        """Freeze widget IDs for each scoreboard inside this team only."""
+        widgets = self._block_widgets()
+        rows = self._cluster_rows([w for w in widgets if w["type"] == "heading"], threshold=35.0)
+        scores = [row for row in rows if len(row) >= 3 and any(
+            SCORE_TEXT_RE.fullmatch(str(w.get("text") or "").strip()) for w in row
+        )]
+        if not scores:
+            raise LookupError(f"No hay marcadores inequivocos en '{self.heading_text}'.")
+        metadata = [w for w in widgets if w["y"] < scores[0][0]["y"] - 5]
+        matches = []
+        for index, row in enumerate(scores):
+            top = min(w["y"] for w in row) - 5
+            bottom = min(w["y"] for w in scores[index + 1]) - 5 if index + 1 < len(scores) else float("inf")
+            region = [w for w in widgets if top <= w["y"] < bottom]
+            editors = [w for w in region if w["type"] == "text_editor"]
+            if len(editors) != 2:
+                raise LookupError(f"Partido {index + 1}: se esperaban roster y cronica, hay {len(editors)} editores.")
+            # Do not let a following sponsor/photo enter the removable match region.
+            end = max(w["y"] for w in editors)
+            region = [w for w in region if w["y"] <= end or w["type"] == "match_end"]
+            view = replace(self, widget_catalog=metadata + region, structured_fields_cache={}, strict_fields=True)
+            fields = view._structured_field_widgets()
+            required = {"home_team", "score", "away_team", "table_home_name", "table_away_name", "chronicle_text", "players_text"}
+            if not required <= fields.keys():
+                raise LookupError(f"Partido {index + 1}: faltan campos {sorted(required - fields.keys())}.")
+            matches.append(view)
+        ids = [str(v["dataId"]) for m in matches for name, v in m._structured_field_widgets().items()
+               if name not in {"team_name", "competition", "group"}]
+        if len(ids) != len(set(ids)):
+            raise LookupError("Dos partidos comparten widgets; no se edita el equipo.")
+        return matches
+
+    def prepare_match_layout(self, period_counts: list[int]) -> list["TeamSectionAnchor"]:
+        from .match_layout import reconcile_match_layout
+
+        matches = self.match_anchors()
+        changed = reconcile_match_layout(self, matches, period_counts)
+        if changed:
+            self.preview.page.wait_for_timeout(750)
+            heading_id = str(self.current_widget["dataId"])
+            self.widget_catalog.clear()
+            self.structured_fields_cache.clear()
+            self._prime_widget_catalog()
+            self._set_current_widget_by_data_id(heading_id)
+            matches = self.match_anchors()
+        if len(matches) != len(period_counts):
+            scores = [(w.get("dataId"), w.get("text"), round(w["x"]), round(w["y"]), round(w.get("width", 0)))
+                      for w in self.widget_catalog if w["type"] == "heading" and SCORE_TEXT_RE.fullmatch(str(w.get("text") or "").strip())]
+            boundaries = [(w.get("dataId"), w.get("text")) for w in self._team_anchor_widgets()]
+            raise LookupError(f"El numero de bloques de partido no coincide con el Word: {len(matches)}/{len(period_counts)}; marcadores={scores}; limites={boundaries}.")
+        for match, count in zip(matches, period_counts):
+            for i in range(1, count + 1):
+                for prefix in ("period_label", "home_period", "away_period"):
+                    match.field_locator(f"{prefix}_{i}")
+        return matches
 
     @classmethod
     def locate(
@@ -534,11 +591,15 @@ class TeamSectionAnchor:
         if self.widget_catalog:
             return
         root = self.preview.root()
+        post_ids = parse_qs(urlsplit(str(getattr(self.preview.page, "url", ""))).query).get("post", []) if hasattr(self.preview, "page") else []
+        post_id = post_ids[0] if post_ids and post_ids[0].isdigit() else ""
         widgets = root.evaluate(
             r"""
-            () => {
+            (postId) => {
               const view = window;
-              const nodes = Array.from(document.querySelectorAll('.elementor-widget'));
+              const documentRoot = postId ? document.querySelector(`.elementor[data-elementor-id="${postId}"]`) : document;
+              if (!documentRoot) throw new Error('No se encuentra el documento Elementor actual');
+              const nodes = Array.from(documentRoot.querySelectorAll('.elementor-widget'));
               return nodes.map((node, index) => {
                 const rect = node.getBoundingClientRect();
                 const text = (node.textContent || '').trim().replace(/\s+/g, ' ');
@@ -546,6 +607,7 @@ class TeamSectionAnchor:
                 let type = 'other';
                 if (className.includes('elementor-widget-heading')) type = 'heading';
                 if (className.includes('elementor-widget-text-editor')) type = 'text_editor';
+                if (className.includes('elementor-widget-thegem-animated-heading')) type = 'match_end';
                 if (
                   className.includes('elementor-widget-image') ||
                   className.includes('elementor-widget-thegem-styledimage')
@@ -561,9 +623,10 @@ class TeamSectionAnchor:
                   height: rect.height,
                   type,
                 };
-              }).filter(item => item.type === 'heading' || item.type === 'text_editor' || item.type === 'image');
+              }).filter(item => ['heading', 'text_editor', 'image', 'match_end'].includes(item.type));
             }
-            """
+            """,
+            post_id,
         )
         self.widget_catalog = [dict(item) for item in widgets]
         heading_box = self.heading_locator.bounding_box() or {"x": 0.0, "y": 0.0}

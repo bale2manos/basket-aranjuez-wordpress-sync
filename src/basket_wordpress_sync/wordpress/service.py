@@ -384,7 +384,7 @@ class ElementorUpdateService:
             self.event_logger.record(
                 "info",
                 "multiple_chronicles_team",
-                f"Se combinarán {len(all_chronicles)} crónicas para '{mapped_chronicle.team_config.web_block_name}' en el texto largo.",
+                f"Se editaran {len(all_chronicles)} partidos independientes para '{mapped_chronicle.team_config.web_block_name}'.",
                 team=mapped_chronicle.team_config.web_block_name,
                 matches=len(all_chronicles),
             )
@@ -490,6 +490,16 @@ class ElementorUpdateService:
         team_photo_image_adapter = ImageWidgetAdapter(side_panel)
         changes = 0
 
+        chronicles = self._mapped_chronicles(mapped_chronicle)
+        match_anchors = [anchor]
+        if hasattr(anchor, "prepare_match_layout"):
+            existing = anchor.match_anchors()
+            counts = [self._period_slot_count(mapped_chronicle.team_config.section,
+                      existing[min(i, len(existing) - 1)], item) for i, item in enumerate(chronicles)]
+            match_anchors = anchor.prepare_match_layout(counts)
+        elif len(chronicles) > 1:
+            raise LookupError("El bloque no permite aislar los partidos; no se mezclaran las cronicas.")
+
         changes += self._safe_header_update(anchor, header_adapter, "team_name", mapped_chronicle.team_config.web_block_name)
         changes += self._safe_header_update(
             anchor,
@@ -503,6 +513,18 @@ class ElementorUpdateService:
             "group",
             self._group_value(mapped_chronicle, chronicle),
         )
+        for match_anchor, match in zip(match_anchors, chronicles):
+            changes += self._update_match(match_anchor, header_adapter, text_adapter, mapped_chronicle.team_config.section, match)
+        changes += self._safe_team_photo_update(
+            anchor,
+            team_photo_background_adapter,
+            team_photo_image_adapter,
+            mapped_chronicle,
+        )
+        return changes
+
+    def _update_match(self, anchor, header_adapter, text_adapter, section: str, chronicle) -> int:
+        changes = 0
         changes += self._safe_header_update(anchor, header_adapter, "home_team", format_team_display(chronicle.home_team))
         if chronicle.home_score is not None and chronicle.away_score is not None:
             changes += self._safe_header_update(anchor, header_adapter, "score", format_score(chronicle.home_score, chronicle.away_score))
@@ -510,8 +532,9 @@ class ElementorUpdateService:
         changes += self._safe_header_update(anchor, header_adapter, "table_home_name", format_team_display(chronicle.home_team))
         changes += self._safe_header_update(anchor, header_adapter, "table_away_name", format_team_display(chronicle.away_team))
 
-        period_count = self._period_slot_count(mapped_chronicle.team_config.section, anchor, chronicle)
-        for item in self._build_period_updates(period_count, chronicle):
+        period_count = self._period_slot_count(section, anchor, chronicle)
+        regulation_count = self.settings.runtime.section_period_counts.get(section, 6 if section == "alevin" else 4)
+        for item in self._build_period_updates(period_count, chronicle, regulation_count=regulation_count):
             index = item["index"]
             changes += self._safe_header_update(anchor, header_adapter, f"period_label_{index}", item["label"])
             changes += self._safe_header_update(anchor, header_adapter, f"home_period_{index}", item["home_value"], weight=item["home_weight"])
@@ -521,14 +544,8 @@ class ElementorUpdateService:
             anchor,
             text_adapter,
             "chronicle_text",
-            paragraphs=self._chronicle_paragraphs(mapped_chronicle),
+            paragraphs=[p for p in chronicle.body_paragraphs if p and p.strip()] or [self.settings.runtime.empty_chronicle_placeholder],
             players_text=None,
-        )
-        changes += self._safe_team_photo_update(
-            anchor,
-            team_photo_background_adapter,
-            team_photo_image_adapter,
-            mapped_chronicle,
         )
         return changes
 
@@ -639,27 +656,25 @@ class ElementorUpdateService:
 
     def _period_slot_count(self, section: str, anchor: TeamSectionAnchor, chronicle) -> int:
         configured = self.settings.runtime.section_period_counts.get(section)
-        if configured:
-            return configured
         detected = 0
-        for index in range(1, 7):
+        for index in range(1, max(8, len(chronicle.partials) + 1)):
             try:
                 anchor.field_locator(f"period_label_{index}")
             except Exception:
                 break
             detected += 1
-        if detected:
-            return detected
-        if chronicle.partials:
-            return len(chronicle.partials)
-        return 4
+        return max(configured or (6 if section == "alevin" else 4), detected, len(chronicle.partials))
 
-    def _build_period_updates(self, period_count: int, chronicle) -> list[dict[str, str | int]]:
+    def _build_period_updates(self, period_count: int, chronicle, *, regulation_count: int | None = None) -> list[dict[str, str | int]]:
         labels = build_period_labels(
             period_count,
             self.settings.runtime.period_label_templates,
             self.settings.runtime.overtime_label,
         )
+        if regulation_count is not None and period_count > regulation_count:
+            labels = build_period_labels(regulation_count, self.settings.runtime.period_label_templates, self.settings.runtime.overtime_label)
+            extra = period_count - regulation_count
+            labels.extend(self.settings.runtime.overtime_label + (str(i) if extra > 1 else "") for i in range(1, extra + 1))
         updates: list[dict[str, str | int]] = []
         for index in range(1, period_count + 1):
             partial = chronicle.partials[index - 1] if index <= len(chronicle.partials) else None

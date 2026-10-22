@@ -41,7 +41,7 @@ Tambien puedes usar **Comprobar dry-run** para ver el plan sin editar. Despues p
 
 El parser lee las cronicas, conserva los saltos de linea de las cabeceras y extrae equipo, competicion, grupo, resultado, parciales y texto. Admite resultados con ambos tanteos juntos o con cada tanteo junto al nombre de su equipo.
 
-Despues compara cada bloque con las reglas de **config/seasons/2026-27/teams.yaml**. En esta temporada la identidad se resuelve por cabecera y competicion/grupo, no por el orden del documento. Dos partidos del mismo equipo se agrupan para incluir las dos cronicas.
+Despues compara cada bloque con las reglas de **config/seasons/2026-27/teams.yaml**. En esta temporada la identidad se resuelve por cabecera y competicion/grupo, no por el orden del documento. Si un equipo tiene dos partidos, se preparan dos bloques independientes de marcador, parciales y cronica, en el orden del Word. El nombre, categoria y foto del equipo se comparten.
 
 El resumen indica que equipos se actualizaran, cuales faltan y que bloques pertenecen a otras secciones. Un equipo que no encaja en ninguna regla genera un error: no se adivina su identidad. Si cambia un grupo al comenzar otra fase, revisa el aviso y ajusta la regla de ese equipo antes de ejecutar.
 
@@ -49,7 +49,8 @@ El resumen indica que equipos se actualizaran, cuales faltan y que bloques perte
 
 - Cada bloque se localiza por su nombre o un alias especifico de la plantilla.
 - Los nombres del marcador se muestran como Basket Aranjuez para el club; los rivales conservan sus siglas y letras en mayusculas.
-- Senior y las demas categorias tienen cuatro periodos; Alevin tiene seis. Los datos ausentes se representan con guiones.
+- Senior y las demas categorias tienen cuatro periodos ordinarios; Alevin tiene seis. Si el Word incluye una prorroga, se conserva y se anade su columna PR cuando falta. Los datos ausentes se representan con guiones, tambien en una columna de prorroga conservada de la jornada anterior.
+- En equipos con varios partidos se reutilizan los bloques existentes o se crean los que faltan sin copiar el patrocinador. Si sobra un partido de la jornada anterior, se retiran sus elementos completos. Si no se puede aislar un bloque con seguridad, se registra el error y se bloquea el guardado de la seccion.
 - El tanteo ganador de cada periodo se pone en negrita. Un empate no destaca ninguno.
 - Se conserva el roster existente. La cronica se sustituye por la nueva o por un guion cuando no hay texto.
 - Las fotos del equipo usan un widget identificado, separado del patrocinador. El escudo ya subido se reutiliza, incluso si WordPress le ha puesto un sufijo numerico.

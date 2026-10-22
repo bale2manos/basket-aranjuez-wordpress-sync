@@ -53,27 +53,45 @@ def verify_saved(before, after, mapped, service):
             errors.append(f"No se guardo el encabezado: {name}")
             continue
         following = current[start:]
-        names = {normalize_lookup_key(x.team_config.web_block_name) for x in mapped}
+        names = {normalize_lookup_key(name) for team in service.settings.teams
+                 for name in [team.web_block_name, *team.anchor_aliases]}
         end = next((i for i, node in enumerate(following[1:], 1) if node.get("widgetType") == "heading" and normalize_lookup_key(plain(node.get("settings", {}).get("title", ""))) in names), len(following))
         block = following[:end]
         chronicle = item.parsed_chronicle
-        values = [plain(node.get("settings", {}).get("title", "")) for node in block if node.get("widgetType") == "heading"]
-        count = service.settings.runtime.section_period_counts[item.team_config.section]
-        periods = service._build_period_updates(count, chronicle)
-        expected = [name, service._competition_value(item, chronicle), service._group_value(item, chronicle), format_team_display(chronicle.home_team), f"{chronicle.home_score} - {chronicle.away_score}", format_team_display(chronicle.away_team)]
-        expected += [p["label"] for p in periods]
-        expected += [format_team_display(chronicle.home_team)] + [p["home_value"] for p in periods]
-        expected += [format_team_display(chronicle.away_team)] + [p["away_value"] for p in periods]
+        values = [plain(node.get("settings", {}).get("title", "")) for node in block if node.get("widgetType") == "heading"
+                  and normalize_lookup_key(plain(node.get("settings", {}).get("title", ""))) != "PATROCINADOR"]
+        expected = [name, service._competition_value(item, chronicle), service._group_value(item, chronicle)]
+        cursor = 3
+        base = service.settings.runtime.section_period_counts[item.team_config.section]
+        for match in item.all_chronicles:
+            label_start = cursor + 3
+            label_end = label_start
+            while label_end < len(values) and re.fullmatch(r"(?:\d+[CP]|PR\d*|TE\d*)", values[label_end], re.I):
+                label_end += 1
+            count = label_end - label_start
+            if count < max(base, len(match.partials)):
+                errors.append(f"{name}: faltan periodos en un partido guardado")
+            periods = service._build_period_updates(count, match, regulation_count=base)
+            expected += [format_team_display(match.home_team), f"{match.home_score} - {match.away_score}", format_team_display(match.away_team)]
+            expected += [p["label"] for p in periods]
+            expected += [format_team_display(match.home_team)] + [p["home_value"] for p in periods]
+            expected += [format_team_display(match.away_team)] + [p["away_value"] for p in periods]
+            cursor += 3 + count + 2 * (count + 1)
         for index, (wanted, actual) in enumerate(zip(expected, values)):
-            if plain(wanted) != actual:
+            if wanted is not None and plain(wanted) != actual:
                 errors.append(f"{name}: campo {index}: esperado {wanted!r}, guardado {actual!r}")
-        if len(values) < len(expected):
-            errors.append(f"{name}: faltan campos de tanteos")
+        if len(values) != len(expected):
+            errors.append(f"{name}: numero inesperado de campos de tanteos")
         editors = [node for node in block if node.get("widgetType") == "text-editor"]
         texts = [plain(node.get("settings", {}).get("editor", "")) for node in editors]
-        for paragraph in service._chronicle_paragraphs(item):
-            if not any(plain(paragraph) in value for value in texts):
-                errors.append(f"{name}: falta un parrafo de cronica guardado")
+        if len(editors) != 2 * len(item.all_chronicles):
+            errors.append(f"{name}: numero inesperado de editores de partido")
+        for index, match in enumerate(item.all_chronicles):
+            body = texts[2 * index + 1] if 2 * index + 1 < len(texts) else ""
+            paragraphs = [p for p in match.body_paragraphs if p.strip()] or [service.settings.runtime.empty_chronicle_placeholder]
+            for paragraph in paragraphs:
+                if plain(paragraph) not in body:
+                    errors.append(f"{name}: falta un parrafo de cronica en el partido {index + 1}")
         for node in editors:
             old = original.get(node["id"])
             if old and re.match(r"^(?:[12]\s*[\u00bao.]?\s*Entrenador|Jugadores\s*:|Jugadoras\s*:)", plain(old.get("settings", {}).get("editor", "")), re.I):
@@ -96,6 +114,7 @@ def main():
     parser.add_argument("--docx", type=Path, required=True)
     parser.add_argument("--test-id", type=int, help="Reutiliza exclusivamente una copia PRUEBA V2 en borrador.")
     parser.add_argument("--remove-team", help="Prueba solo la eliminacion completa de este equipo en la copia.")
+    parser.add_argument("--team", help="Prueba solo este equipo del perfil en la copia.")
     parser.add_argument("--rename-template-team", nargs=2, metavar=("OLD", "NEW"), help="Prepara un encabezado de la copia historica para probar otro equipo del perfil actual.")
     args = parser.parse_args()
     settings = load_settings(ROOT)
@@ -142,6 +161,8 @@ def main():
                 before = api.get_post(clone["id"])
             present = {normalize_lookup_key(plain(node.get("settings", {}).get("title", ""))) for node in widgets(before) if node.get("widgetType") == "heading"}
             mapped = [item for item in plan.updates if normalize_lookup_key(item.team_config.web_block_name) in present]
+            if args.team:
+                mapped = [item for item in mapped if normalize_lookup_key(item.team_config.web_block_name) == normalize_lookup_key(args.team)]
             if not mapped:
                 raise RuntimeError("La plantilla historica no contiene equipos del perfil nuevo.")
             deletions = []
