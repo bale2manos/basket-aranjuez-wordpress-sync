@@ -120,6 +120,31 @@ def smart_title(value: str) -> str:
     return " ".join(rendered)
 
 
+def normalize_roster_line(value: str) -> str:
+    """Normalize capitalization in a labeled, comma-separated roster line."""
+    match = re.match(
+        r"^(?P<label>\s*(?:JUGADOR(?:ES|AS)?|(?:[12]\s*[º°o.]?\s*)?ENTRENADOR(?:A|ES|AS)?)\s*:\s*)(?P<names>.*)$",
+        value,
+        re.IGNORECASE,
+    )
+    if match is None:
+        return value
+
+    names: list[str] = []
+    for item in match.group("names").split(","):
+        item = compact_whitespace(item)
+        if not item:
+            continue
+        number_match = re.match(r"^(.*?)(\s+\d+)?$", item)
+        name_words = smart_title(number_match.group(1)).split()
+        for index in range(1, len(name_words)):
+            if name_words[index].casefold() in {"y", "de", "del", "la", "las", "los"}:
+                name_words[index] = name_words[index].lower()
+        name = " ".join(name_words)
+        names.append(f"{name}{number_match.group(2) or ''}")
+    return f"{match.group('label')}{', '.join(names)}"
+
+
 def looks_like_heading_line(value: str) -> bool:
     text = compact_whitespace(value)
     if not text:

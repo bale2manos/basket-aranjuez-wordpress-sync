@@ -899,7 +899,7 @@ class TeamSectionAnchor:
             elements = [item for item in elements if item.get("dataId") in allowed_ids]
         return [dict(item) for item in elements]
 
-    def set_team_photo_media(self, media: dict) -> str:
+    def set_team_photo_media(self, media: dict, *, fallback: bool = False) -> str:
         dedicated = self.preview.locator(".basket-sync-team-photo")
         top, bottom = self._block_bounds()
         target_id = ""
@@ -909,12 +909,28 @@ class TeamSectionAnchor:
             if top <= position < bottom:
                 target_id = candidate.get_attribute("data-id") or ""
                 break
-        chronicle = self.field_locator("chronicle_text")
-        chronicle_id = chronicle.get_attribute("data-id")
-        if not chronicle_id:
-            chronicle_id = chronicle.evaluate("node => node.closest('[data-id]')?.getAttribute('data-id')")
+        target_kind = "image"
+        if not target_id:
+            image_slots = self.team_image_locators()
+            if len(image_slots) > 1:
+                raise LookupError(f"Hay varias fotos posibles dentro de '{self.heading_text}'; no se modificó ninguna.")
+            if image_slots:
+                target_id = image_slots[0].get_attribute("data-id") or ""
+        if not target_id:
+            background_slots = self.team_photo_container_locators()
+            if len(background_slots) > 1:
+                raise LookupError(f"Hay varios contenedores de foto posibles dentro de '{self.heading_text}'; no se modificó ninguno.")
+            if background_slots:
+                target_id = background_slots[0].get_attribute("data-id") or ""
+                target_kind = "background"
+        if not target_id:
+            raise LookupError(f"No se encontró un espacio de foto existente para '{self.heading_text}'; no se añadió ningún widget.")
+        target_locator = self.preview.locator(f'[data-id="{target_id}"]').first
+        widget_type = str(target_locator.get_attribute("data-widget_type") or "").lower()
+        if target_kind == "image" and not widget_type:
+            target_kind = "background"
         result = self.preview.page.evaluate(
-            """({targetId, chronicleId, media}) => {
+            """({targetId, targetKind, media, fallback}) => {
               const operation = async () => {
               const root = window.elementor?.documents?.getCurrent?.()?.container;
               const find = (node, id) => {
@@ -924,26 +940,24 @@ class TeamSectionAnchor:
                 return null;
               };
               if (!root || !window.$e) throw new Error('Elementor no esta preparado');
-              let target = targetId ? find(root, targetId) : null;
-              if (target) {
-                await window.$e.run('document/elements/settings', {container: target, settings: {image: media}});
-              } else {
-                const chronicle = find(root, chronicleId);
-                if (!chronicle?.parent) throw new Error('No hay un contenedor de cronica inequivoco');
-                const index = chronicle.parent.children.findIndex(child => child.id === chronicle.id);
-                target = await window.$e.run('document/elements/create', {
-                  container: chronicle.parent,
-                  model: {elType: 'widget', widgetType: 'image', settings: {
-                    image: media, image_size: 'medium', align: 'center',
-                    width: {unit: 'px', size: 320}, _css_classes: 'basket-sync-team-photo'
-                  }, elements: []}, options: {at: index}
-                });
-              }
-              return target?.id || 'created';
+              const target = find(root, targetId);
+              if (!target) throw new Error('No se pudo resolver el espacio de foto existente');
+              const settings = targetKind === 'background'
+                ? {
+                    background_background: 'classic', background_image: media,
+                    css_classes: 'basket-sync-team-photo',
+                    ...(fallback ? {
+                      background_size: 'contain', background_position: 'center center',
+                      background_repeat: 'no-repeat'
+                    } : {})
+                  }
+                : {image: media, _css_classes: 'basket-sync-team-photo'};
+              await window.$e.run('document/elements/settings', {container: target, settings});
+              return target.id;
               };
               return Promise.race([operation(), new Promise((_, reject) => setTimeout(() => reject(new Error('Elementor no confirma la foto en 15 segundos')), 15000))]);
             }""",
-            {"targetId": target_id, "chronicleId": chronicle_id, "media": media},
+            {"targetId": target_id, "targetKind": target_kind, "media": media, "fallback": fallback},
         )
         self.structured_fields_cache.clear()
         return str(result)

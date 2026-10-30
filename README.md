@@ -52,8 +52,8 @@ El resumen indica que equipos se actualizaran, cuales faltan y que bloques perte
 - Senior y las demas categorias tienen cuatro periodos ordinarios; Alevin tiene seis. Si el Word incluye una prorroga, se conserva y se anade su columna PR cuando falta. Los datos ausentes se representan con guiones, tambien en una columna de prorroga conservada de la jornada anterior.
 - En equipos con varios partidos se reutilizan los bloques existentes o se crean los que faltan sin copiar el patrocinador. Si sobra un partido de la jornada anterior, se retiran sus elementos completos. Si no se puede aislar un bloque con seguridad, se registra el error y se bloquea el guardado de la seccion.
 - El tanteo ganador de cada periodo se pone en negrita. Un empate no destaca ninguno.
-- Se conserva el roster existente. La cronica se sustituye por la nueva o por un guion cuando no hay texto.
-- Las fotos del equipo usan un widget identificado, separado del patrocinador. El escudo ya subido se reutiliza, incluso si WordPress le ha puesto un sufijo numerico.
+- El roster se actualiza con las jugadoras y jugadores del Word. Si el documento no trae entrenadores, se conservan los del roster anterior; no se arrastran nombres de jugadores antiguos.
+- Las fotos sustituyen el recurso del espacio de foto del equipo; nunca se anade un widget nuevo ni se modifica la foto del patrocinador. Si falta foto, se usa el escudo existente y se reutiliza, incluso si WordPress le ha puesto un sufijo numerico.
 - Los equipos ausentes se eliminan con todos sus contenedores relacionados, no solo vaciando el titulo.
 - Un fallo durante la seccion bloquea su guardado, para facilitar la revision.
 
@@ -77,6 +77,7 @@ No compartas el archivo de sesion de output/wordpress_sync/state ni tu configura
 - **No encuentra borradores:** revisa la fecha y los titulos de las entradas; deben identificar la seccion y el fin de semana con su ano. Las entradas publicadas se omiten.
 - **Mapeo ambiguo o grupo nuevo:** revisa el Word y las reglas del equipo. No confirmes una asignacion incorrecta.
 - **Falta el ZIP:** desmarca la casilla de fotos; se usara el escudo.
+- **No se reconoce una foto:** consulta [la guia de nombres de fotos](docs/FOTOS.md); usa el nombre completo del equipo o un alias configurado. Si dos archivos coinciden, la app se detiene para evitar asignar la foto incorrecta.
 - **Error de Elementor:** conserva los logs y las capturas. Revisa la entrada antes de publicar y corrige la causa antes de repetir.
 
 ## Consola y desarrollo

@@ -105,19 +105,41 @@ class MatchUpdateTests(unittest.TestCase):
         self.assertEqual([u["label"] for u in updates], [f"{i}P" for i in range(1, 7)])
         self.assertTrue(all(u["home_value"] == u["away_value"] == "-" for u in updates))
 
-    def test_each_match_updates_its_own_body_and_never_roster(self):
+    def test_each_match_updates_its_own_body_and_roster(self):
         service = self.service()
         service._safe_header_update = Mock(return_value=1)
         service._safe_text_update = Mock(return_value=1)
+        service._existing_roster_text = Mock(return_value="")
         views = make_anchor().match_anchors()
         for i, view in enumerate(views):
             c = SimpleNamespace(home_team=f"Local {i}", away_team=f"Rival {i}", home_score=65+i,
-                                away_score=15, partials=[], body_paragraphs=[f"Relato {i}"])
+                                away_score=15, partials=[], players_text=f"JUGADORAS: Jugadora {i}",
+                                body_paragraphs=[f"Relato {i}"])
             service._update_match(view, None, None, "alevin", c)
         texts = service._safe_text_update.call_args_list
-        self.assertEqual([c.args[2] for c in texts], ["chronicle_text", "chronicle_text"])
-        self.assertEqual([c.kwargs["paragraphs"] for c in texts], [["Relato 0"], ["Relato 1"]])
-        self.assertIs(texts[1].args[0], views[1])
+        self.assertEqual([c.args[2] for c in texts], ["players_text", "chronicle_text"] * 2)
+        self.assertEqual([c.kwargs["players_text"] for c in texts if c.args[2] == "players_text"],
+                         ["JUGADORAS: Jugadora 0", "JUGADORAS: Jugadora 1"])
+        self.assertEqual([c.kwargs["paragraphs"] for c in texts if c.args[2] == "chronicle_text"],
+                         [["Relato 0"], ["Relato 1"]])
+        self.assertIs(texts[-1].args[0], views[1])
+
+    def test_roster_keeps_existing_coaches_when_word_has_only_players(self):
+        service = self.service()
+        result = service._roster_value(
+            "JUGADORAS: Lucia Pérez",
+            "JUGADORAS: Nombre antiguo\n1º Entrenador: Ana García\n2º Entrenador: Berta López",
+        )
+        self.assertEqual(result, "JUGADORAS: Lucia Pérez\n1º Entrenador: Ana García\n2º Entrenador: Berta López")
+
+    def test_roster_uses_word_coaches_instead_of_old_coaches(self):
+        service = self.service()
+        result = service._roster_value(
+            "JUGADORAS: Lucia Pérez\n1º Entrenador: Nuevo técnico",
+            "JUGADORAS: Nombre antiguo\n1º Entrenador: Técnico antiguo",
+        )
+        self.assertIn("Nuevo técnico", result)
+        self.assertNotIn("Técnico antiguo", result)
 
 
 class LocalBrowserLayoutTests(unittest.TestCase):

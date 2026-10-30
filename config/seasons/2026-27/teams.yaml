@@ -19,7 +19,7 @@ sections:
         match_rules: [{heading: ALEVÍN MASCULINO SEGUNDO AÑO, competition: GRUPO 12}]
       - web_block_name: Alevín Masculino 2º año Negro
         expected_order: 6
-        match_rules: [{heading: ALEVÍN MASCULINO SEGUNDO AÑO, competition: GRUPO 13}]
+        match_rules: [{heading: ALEVÍN MASCULINO SEGUNDO AÑO, competition: GRUPO 8}]
   infantil_femenino:
     teams:
       - web_block_name: Infantil Femenino 1º año Postas Tapería
@@ -32,9 +32,11 @@ sections:
         expected_order: 3
         match_rules: [{heading: INFANTIL FEMENINO, competition: PRIMERA DIVISIÓN}]
       - web_block_name: Infantil Femenino 2º año Negro
+        photo_aliases: [InfFem2AñoNegro, InfFemNegro]
         expected_order: 4
         match_rules: [{heading: INFANTIL FEMENINO, competition: SEGUNDA DIVISIÓN}]
       - web_block_name: Infantil Femenino 2º año Postas Tapería
+        photo_aliases: [InfFem2AñoPostasTapería, InfFemTaperíaPostas]
         expected_order: 5
         match_rules: [{heading: INFANTIL FEMENINO, competition: LIGA AHORRAMAS}]
   infantil_masculino:
@@ -49,6 +51,7 @@ sections:
         expected_order: 3
         match_rules: [{heading: INFANTIL MASCULINO, competition: LIGA AHORRAMAS}]
       - web_block_name: Infantil Masculino 2º año Negro
+        photo_aliases: [InfMasc2AñoNegro, InfMascNegro]
         expected_order: 4
         match_rules: [{heading: INFANTIL MASCULINO, competition: PRIMERA DIVISIÓN}]
       - web_block_name: Infantil Masculino 2º año Amarillo

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+import re
 import time
 from typing import Any
 
@@ -10,7 +11,7 @@ from playwright.sync_api import Browser, BrowserContext, Page, sync_playwright
 from ..artifacts import RunArtifacts
 from ..logging_utils import EventLogger
 from ..models import DeletionPlan, MappedChronicle
-from ..normalizer.text import build_period_labels, format_competition_display, format_score, format_team_display
+from ..normalizer.text import build_period_labels, format_competition_display, format_score, format_team_display, normalize_lookup_key
 from ..photo_repository import PhotoRepository
 from .adapters import BackgroundContainerAdapter, HeaderWidgetAdapter, ImageWidgetAdapter, TextEditorWidgetAdapter
 from .target_guard import require_unpublished_target
@@ -543,11 +544,48 @@ class ElementorUpdateService:
         changes += self._safe_text_update(
             anchor,
             text_adapter,
+            "players_text",
+            paragraphs=[],
+            players_text=self._roster_value(chronicle.players_text, self._existing_roster_text(anchor)),
+        ) if chronicle.players_text else 0
+        changes += self._safe_text_update(
+            anchor,
+            text_adapter,
             "chronicle_text",
             paragraphs=[p for p in chronicle.body_paragraphs if p and p.strip()] or [self.settings.runtime.empty_chronicle_placeholder],
             players_text=None,
         )
         return changes
+
+    def _existing_roster_text(self, anchor: TeamSectionAnchor) -> str:
+        try:
+            return anchor.field_locator("players_text").inner_text().strip()
+        except Exception:
+            return ""
+
+    def _roster_value(self, players_text: str | None, existing: str) -> str:
+        if not players_text:
+            return ""
+        coach = re.compile(r"(?i)(?:[12]\s*[º°o.]?\s*)?entrenador(?:a|es|as)?\s*:")
+        if coach.search(players_text):
+            value = players_text
+        else:
+            stops = sorted(
+                [match.start() for match in coach.finditer(existing)]
+                + [match.start() for match in re.finditer(r"(?i)\bjugador(?:as|es)\s*:", existing)]
+            )
+            kept: list[str] = []
+            seen: set[str] = set()
+            for match in coach.finditer(existing):
+                end = next((position for position in stops if position > match.start()), len(existing))
+                segment = existing[match.start():end].strip()
+                key = normalize_lookup_key(segment)
+                if key and key not in seen:
+                    kept.append(segment)
+                    seen.add(key)
+            value = "\n".join([players_text.rstrip(), *kept])
+        value = coach.sub(lambda match: "\n" + re.sub(r"\s*:$", ":", match.group(0)), value)
+        return re.sub(r"[ \t]*\n[ \t\n]*", "\n", value).strip()
 
     def _clear_deleted_block(
         self,
@@ -852,7 +890,7 @@ class ElementorUpdateService:
             if key not in self._v2_media_cache:
                 api = WordPressApi(anchor.preview.page.context.request, self.settings.site(self.settings.runtime.default_site_key).login_url)
                 self._v2_media_cache[key] = api.resolve_media(resolved.path, reuse=resolved.fallback)
-            anchor.set_team_photo_media(self._v2_media_cache[key])
+            anchor.set_team_photo_media(self._v2_media_cache[key], fallback=resolved.fallback)
             self.event_logger.record("info", "team_photo_updated", f"Foto de equipo actualizada: {mapped_chronicle.team_config.web_block_name}", fallback=resolved.fallback, media_id=self._v2_media_cache[key]["id"])
             return 1
         if not (anchor.team_photo_container_locators() or anchor.team_image_locators()):

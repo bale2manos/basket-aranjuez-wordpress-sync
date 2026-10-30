@@ -75,6 +75,17 @@ class WordPressSyncParserTests(unittest.TestCase):
         self.assertIsNone(partials[4].home_score)
         self.assertIsNone(partials[5].away_score)
 
+    def test_parser_normalizes_roster_capitalization(self) -> None:
+        path = self._create_docx(
+            [
+                "ALEVÍN FEMENINO SEGUNDO AÑO GRUPO 4",
+                "BASKET ARANJUEZ 50 - 40 RIVAL",
+                "JUGADORAS: Emma, AINARA, lucia pérez y lucia heredia",
+            ]
+        )
+        chronicle = ChronicleParser().parse_docx(path)[0]
+        self.assertEqual(chronicle.players_text, "JUGADORAS: Emma, Ainara, Lucia Pérez y Lucia Heredia")
+
     def test_parser_marks_incomplete_blocks(self) -> None:
         path = self._create_docx(
             [

@@ -68,6 +68,44 @@ class PhotoRepositoryTests(unittest.TestCase):
             self.assertTrue(resolved.path.exists())
             self.assertIn("basket_aranjuez", resolved.path.name)
 
+    def test_resolve_uses_web_name_and_aliases_together(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            photos_dir = root / "photos"
+            photos_dir.mkdir()
+            archive_path = photos_dir / "week.zip"
+            with zipfile.ZipFile(archive_path, "w") as archive:
+                archive.writestr("InfFemNegro.jpeg", b"jpeg")
+            repository = PhotoRepository(
+                root_dir=root, photos_dir=photos_dir, cache_dir=root / "cache",
+                fallback_name="basket_aranjuez.png", photos_zip_path=archive_path,
+            )
+            team = TeamConfig(
+                section="infantil_femenino", web_block_name="Infantil Femenino 2º año Negro",
+                photo_aliases=["InfFem2AñoNegro", "InfFemNegro"],
+            )
+            resolved = repository.resolve_for_team(team)
+            self.assertFalse(resolved.fallback)
+            self.assertEqual(resolved.source_name, "InfFemNegro.jpeg")
+
+    def test_ambiguous_photo_matches_are_rejected(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            photos_dir = root / "photos"
+            photos_dir.mkdir()
+            archive_path = photos_dir / "week.zip"
+            with zipfile.ZipFile(archive_path, "w") as archive:
+                archive.writestr("InfFemNegro.jpeg", b"one")
+                archive.writestr("InfFemNegro.jpg", b"two")
+            repository = PhotoRepository(
+                root_dir=root, photos_dir=photos_dir, cache_dir=root / "cache",
+                fallback_name="basket_aranjuez.png", photos_zip_path=archive_path,
+            )
+            team = TeamConfig(section="infantil_femenino", web_block_name="Infantil Femenino 2º año Negro",
+                              photo_aliases=["InfFemNegro"])
+            with self.assertRaisesRegex(ValueError, "ambigua"):
+                repository.resolve_for_team(team)
+
 
 if __name__ == "__main__":
     unittest.main()

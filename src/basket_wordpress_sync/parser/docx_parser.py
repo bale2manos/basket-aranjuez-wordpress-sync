@@ -13,6 +13,7 @@ from ..normalizer.text import (
     extract_heading_and_competition,
     looks_like_heading_line,
     normalize_lookup_key,
+    normalize_roster_line,
     section_from_heading,
     split_competition_lines,
 )
@@ -184,7 +185,7 @@ class ChronicleParser:
                 continue
             body_paragraphs.append(line)
 
-        players_text = "\n".join(player_lines) if player_lines else None
+        players_text = "\n".join(normalize_roster_line(line) for line in player_lines) if player_lines else None
         if result is None:
             if "missing_result" not in warnings:
                 warnings.append("missing_result")

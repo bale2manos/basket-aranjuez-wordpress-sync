@@ -59,7 +59,7 @@ class PhotoRepository:
                 source_name=self.fallback_name,
                 matched_alias=None,
             )
-        alias_candidates = list(team.photo_aliases) or [team.web_block_name, *team.heading_aliases]
+        alias_candidates = list(dict.fromkeys([team.web_block_name, *team.photo_aliases, *team.heading_aliases]))
         scored: list[tuple[int, str, PhotoAsset]] = []
         for alias in alias_candidates:
             alias_key = self._alias_key(alias)
@@ -72,7 +72,12 @@ class PhotoRepository:
 
         if scored:
             scored.sort(key=lambda item: (item[0], len(item[2].lookup_key)), reverse=True)
-            _, alias, asset = scored[0]
+            best_score = scored[0][0]
+            best_assets = {item[2].safe_path for item in scored if item[0] == best_score}
+            if len(best_assets) > 1:
+                names = ", ".join(sorted(path.name for path in best_assets))
+                raise ValueError(f"La foto de '{team.web_block_name}' es ambigua entre: {names}.")
+            _, alias, asset = next(item for item in scored if item[0] == best_score)
             return ResolvedPhoto(
                 path=asset.safe_path,
                 fallback=False,
@@ -156,8 +161,6 @@ class PhotoRepository:
         candidate = self.cache_dir / f"{stem}{suffix}"
         counter = 2
         while candidate.exists():
-            if normalize_lookup_key(candidate.stem) == normalize_lookup_key(stem):
-                return candidate
             candidate = self.cache_dir / f"{stem}_{counter}{suffix}"
             counter += 1
         return candidate
