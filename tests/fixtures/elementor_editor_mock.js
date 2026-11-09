@@ -20,20 +20,29 @@ window.installEditor = models => {
       element.dataset.id = node.id;
       if (node.raw.elType === 'widget') {
         const type = node.raw.widgetType;
-        element.className = 'elementor-widget elementor-widget-' + type;
+        element.className = 'elementor-element elementor-widget elementor-widget-' + type + ' ' + (node.raw.settings?._css_classes || '');
+        element.setAttribute('data-widget_type', type + '.default');
         element.style.cssText = 'flex:1;min-width:0;min-height:50px';
-        const text = document.createElement(type === 'heading' ? 'h2' : 'p');
-        text.textContent = node.raw.settings?.title ?? node.raw.settings?.editor ?? '';
-        element.append(text);
+        if (type === 'image' || type === 'thegem-styledimage') {
+          const image = document.createElement('img');
+          image.src = node.raw.settings.image.url;
+          element.append(image);
+        } else {
+          const text = document.createElement(type === 'heading' ? 'h2' : 'p');
+          text.textContent = node.raw.settings?.title ?? node.raw.settings?.editor ?? '';
+          element.append(text);
+        }
       } else {
-        element.className = 'e-con ' + (node.raw.settings?._css_classes || '');
+        element.className = 'e-con ' + (node.raw.settings?.css_classes || node.raw.settings?._css_classes || '');
         element.style.cssText = 'display:flex;min-width:0;flex-direction:' + (node.raw.settings?.flex_direction || 'column');
+        if (node.raw.settings?.background_image) element.style.backgroundImage = `url('${node.raw.settings.background_image.url}')`;
         if (node.raw.settings?.container_type === 'grid') {
           element.style.display = 'grid';
           element.style.gridTemplateColumns = 'repeat(' + node.raw.settings.grid_columns_grid.size + ',1fr)';
         }
         node.children.forEach(child => element.append(draw(child)));
       }
+      if (node.raw.fixtureStyle) element.style.cssText += ';' + node.raw.fixtureStyle;
       return element;
     };
     root.children.forEach(child => mount.append(draw(child)));

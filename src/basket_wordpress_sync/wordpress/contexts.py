@@ -877,6 +877,8 @@ class TeamSectionAnchor:
               const rect = node.getBoundingClientRect();
               const y = rect.top + window.scrollY;
               const img = node.querySelector(':scope > img, img');
+              const background = [getComputedStyle(node), getComputedStyle(node, '::before')]
+                .map(style => style.backgroundImage).find(value => value.includes('url('));
               return {
                 dataId: node.getAttribute('data-id') || '',
                 className: node.className || '',
@@ -887,7 +889,7 @@ class TeamSectionAnchor:
                 width: rect.width,
                 height: rect.height,
                 imgSrc: img ? (img.getAttribute('src') || '') : '',
-                backgroundImage: getComputedStyle(node).backgroundImage || '',
+                backgroundImage: background || '',
               };
             }).filter(item => item.dataId && item.y >= top && item.y < bottom && item.width > 50 && item.height > 50);
             """,
@@ -900,37 +902,51 @@ class TeamSectionAnchor:
         return [dict(item) for item in elements]
 
     def set_team_photo_media(self, media: dict, *, fallback: bool = False) -> str:
-        dedicated = self.preview.locator(".basket-sync-team-photo")
-        top, bottom = self._block_bounds()
-        target_id = ""
-        for index in range(dedicated.count()):
-            candidate = dedicated.nth(index)
-            position = candidate.evaluate("node => node.getBoundingClientRect().top + window.scrollY")
-            if top <= position < bottom:
-                target_id = candidate.get_attribute("data-id") or ""
-                break
-        target_kind = "image"
-        if not target_id:
-            image_slots = self.team_image_locators()
-            if len(image_slots) > 1:
-                raise LookupError(f"Hay varias fotos posibles dentro de '{self.heading_text}'; no se modificó ninguna.")
-            if image_slots:
-                target_id = image_slots[0].get_attribute("data-id") or ""
-        if not target_id:
-            background_slots = self.team_photo_container_locators()
-            if len(background_slots) > 1:
-                raise LookupError(f"Hay varios contenedores de foto posibles dentro de '{self.heading_text}'; no se modificó ninguno.")
-            if background_slots:
-                target_id = background_slots[0].get_attribute("data-id") or ""
-                target_kind = "background"
-        if not target_id:
-            raise LookupError(f"No se encontró un espacio de foto existente para '{self.heading_text}'; no se añadió ningún widget.")
-        target_locator = self.preview.locator(f'[data-id="{target_id}"]').first
-        widget_type = str(target_locator.get_attribute("data-widget_type") or "").lower()
-        if target_kind == "image" and not widget_type:
-            target_kind = "background"
+        heading_id = str((self.current_widget or {}).get("dataId") or "")
+        self.widget_catalog.clear()
+        self.structured_fields_cache.clear()
+        self.current_widget = None
+        self._prime_widget_catalog()
+        self.current_widget = None
+        self._set_current_widget_by_data_id(heading_id)
+        if self.current_widget is None:
+            raise LookupError(f"No se pudo verificar la cabecera de '{self.heading_text}'.")
+
+        fields = self.match_anchors()[0]._structured_field_widgets()
+        home, score = fields["home_team"], fields["score"]
+        roster, body = fields["players_text"], fields["chronicle_text"]
+        photo_end = min(roster["y"] + roster["height"], body["y"]) - 5
+        sponsor_y = min((widget["y"] for widget in self._block_widgets()
+                         if widget["type"] == "heading" and widget["y"] > score["y"]
+                         and normalize_lookup_key(widget["text"]) == "PATROCINADOR"), default=float("inf"))
+        elements = self._block_visual_elements()
+        slots: list[tuple[str, str]] = []
+        legacy_ids: list[str] = []
+        for item in elements:
+            widget_type = item["widgetType"]
+            if (
+                photo_end <= item["y"] < body["y"]
+                and widget_type == "image.default"
+                and "basket-sync-team-photo" in item["className"].split()
+            ):
+                legacy_ids.append(item["dataId"])
+                continue
+            if not (
+                score["y"] + 5 < item["y"] < min(photo_end, sponsor_y)
+                and abs(item["x"] - home["x"]) <= 80
+                and 180 <= item["width"] <= 550
+                and item["height"] >= 120
+            ):
+                continue
+            if widget_type in {"image.default", "thegem-styledimage.default"} and item["imgSrc"]:
+                slots.append((item["dataId"], "image"))
+            elif not widget_type and "url(" in item["backgroundImage"]:
+                slots.append((item["dataId"], "background"))
+        if len(slots) != 1:
+            raise LookupError(f"No hay un espacio de foto inequívoco junto a los parciales de '{self.heading_text}' ({len(slots)} candidatos).")
+        target_id, target_kind = slots[0]
         result = self.preview.page.evaluate(
-            """({targetId, targetKind, media, fallback}) => {
+            r"""({targetId, targetKind, bodyId, legacyIds, media, fallback}) => {
               const operation = async () => {
               const root = window.elementor?.documents?.getCurrent?.()?.container;
               const find = (node, id) => {
@@ -942,22 +958,45 @@ class TeamSectionAnchor:
               if (!root || !window.$e) throw new Error('Elementor no esta preparado');
               const target = find(root, targetId);
               if (!target) throw new Error('No se pudo resolver el espacio de foto existente');
+              const body = find(root, bodyId);
+              if (!body?.parent) throw new Error('No se pudo verificar el widget de cronica');
+              const siblings = body.parent.children;
+              const duplicates = [];
+              // Old versions inserted a marked Image widget just before the chronicle.
+              for (let i = siblings.findIndex(node => node.id === bodyId) - 1; i >= 0; i--) {
+                const node = siblings[i];
+                if (!legacyIds.includes(node.id)) break;
+                const model = node.model.toJSON();
+                if (model.elType !== 'widget' || model.widgetType !== 'image' ||
+                    !(model.settings?._css_classes || '').split(/\s+/).includes('basket-sync-team-photo')) break;
+                duplicates.push(node);
+              }
+              const model = target.model.toJSON();
+              const original = targetKind === 'background' ? model.settings?.background_image : model.settings?.image;
+              if (!original?.id && !original?.url) throw new Error('El espacio no tiene una imagen editable');
+              const classKey = targetKind === 'background' ? 'css_classes' : '_css_classes';
+              const classes = new Set((model.settings?.[classKey] || '').split(/\s+/).filter(Boolean));
+              classes.add('basket-sync-team-photo');
               const settings = targetKind === 'background'
                 ? {
                     background_background: 'classic', background_image: media,
-                    css_classes: 'basket-sync-team-photo',
                     ...(fallback ? {
                       background_size: 'contain', background_position: 'center center',
                       background_repeat: 'no-repeat'
                     } : {})
                   }
-                : {image: media, _css_classes: 'basket-sync-team-photo'};
+                : {image: media};
+              settings[classKey] = [...classes].join(' ');
               await window.$e.run('document/elements/settings', {container: target, settings});
+              for (const duplicate of duplicates) {
+                await window.$e.run('document/elements/delete', {container: duplicate});
+              }
               return target.id;
               };
               return Promise.race([operation(), new Promise((_, reject) => setTimeout(() => reject(new Error('Elementor no confirma la foto en 15 segundos')), 15000))]);
             }""",
-            {"targetId": target_id, "targetKind": target_kind, "media": media, "fallback": fallback},
+            {"targetId": target_id, "targetKind": target_kind, "bodyId": body["dataId"],
+             "legacyIds": legacy_ids, "media": media, "fallback": fallback},
         )
         self.structured_fields_cache.clear()
         return str(result)

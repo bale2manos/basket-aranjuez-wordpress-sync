@@ -167,7 +167,7 @@ class LocalBrowserLayoutTests(unittest.TestCase):
     def tearDown(self):
         self.page.close()
 
-    def install(self, period_counts, *, grid=False):
+    def install(self, period_counts, *, grid=False, photos=None):
         def h(id, title):
             return {"id": id, "elType": "widget", "widgetType": "heading", "settings": {"title": title}}
         def row(id, children):
@@ -181,6 +181,10 @@ class LocalBrowserLayoutTests(unittest.TestCase):
                 models.append(row(p+side+"Row", [h(p+side+"name", side)] + [h(p+side+str(j), "9") for j in range(1,count+1)]))
             models.extend({"id": p+k, "elType": "widget", "widgetType": "text-editor", "settings": {"editor": text}} for k,text in (("roster","JUGADORAS: original"),("body","Cronica original")))
         models.append(h("next", "Alevin Masculino Negro"))
+        if photos:
+            for sibling, items in photos.items():
+                index = next(i for i, model in enumerate(models) if model["id"] == sibling)
+                models[index:index] = items
         if grid:
             for model in models:
                 if model["id"].endswith(("labels", "homeRow", "awayRow")):
@@ -191,6 +195,54 @@ class LocalBrowserLayoutTests(unittest.TestCase):
         anchor._prime_widget_catalog()
         anchor._set_current_widget_by_data_id("team")
         return anchor
+
+    @staticmethod
+    def image_model(widget_id, *, marked=False):
+        return {"id": widget_id, "elType": "widget", "widgetType": "image", "fixtureStyle": "width:320px;height:180px",
+                "settings": {"image": {"id": 1, "url": "https://example.test/old.jpg"},
+                             "_css_classes": "basket-sync-team-photo" if marked else ""}}
+
+    def test_replaces_native_photo_and_removes_only_legacy_duplicate(self):
+        original = {"id": "native-photo", "elType": "container", "fixtureStyle": "width:320px;height:180px",
+                    "settings": {"background_image": {"id": 1, "url": "https://example.test/old.jpg"},
+                                 "css_classes": "existing-style"}}
+        other = self.image_model("unrelated")
+        other["fixtureStyle"] += ";margin-left:200px"
+        anchor = self.install([6], photos={
+            "m0labels": [original],
+            "m0body": [other, self.image_model("old-duplicate", marked=True)],
+            "next": [self.image_model("sponsor", marked=True)],
+        })
+        crest = {"id": 99, "url": "https://example.test/crest.png"}
+        self.assertEqual(anchor.set_team_photo_media(crest, fallback=True), "native-photo")
+        self.assertEqual(anchor.set_team_photo_media(crest, fallback=True), "native-photo")
+        settings = self.page.evaluate("elementor.documents.getCurrent().container.children.find(n => n.id === 'native-photo').raw.settings")
+        self.assertEqual(settings["background_image"], crest)
+        self.assertEqual(settings["background_size"], "contain")
+        self.assertEqual(settings["css_classes"], "existing-style basket-sync-team-photo")
+        self.assertEqual(self.page.locator('[data-id="old-duplicate"]').count(), 0)
+        for widget_id in ("unrelated", "sponsor"):
+            self.assertEqual(self.page.locator(f'[data-id="{widget_id}"] img').get_attribute("src"), "https://example.test/old.jpg")
+
+    def test_without_native_photo_does_not_overwrite_or_delete_legacy_widget(self):
+        anchor = self.install([6], photos={"m0body": [self.image_model("old-duplicate", marked=True)]})
+        with self.assertRaisesRegex(LookupError, "0 candidatos"):
+            anchor.set_team_photo_media({"id": 99, "url": "https://example.test/new.jpg"})
+        self.assertEqual(self.page.locator('[data-id="old-duplicate"] img').get_attribute("src"), "https://example.test/old.jpg")
+
+    def test_replaces_existing_image_widget_without_creating_another(self):
+        anchor = self.install([6], photos={"m0labels": [self.image_model("native-photo")]})
+        media = {"id": 99, "url": "https://example.test/new.jpg"}
+        self.assertEqual(anchor.set_team_photo_media(media), "native-photo")
+        images = self.page.locator('main img')
+        self.assertEqual(images.count(), 1)
+        self.assertEqual(images.first.get_attribute("src"), media["url"])
+
+    def test_ambiguous_original_photos_are_not_modified(self):
+        anchor = self.install([6], photos={"m0labels": [self.image_model("first"), self.image_model("second")]})
+        with self.assertRaisesRegex(LookupError, "2 candidatos"):
+            anchor.set_team_photo_media({"id": 99, "url": "https://example.test/new.jpg"})
+        self.assertEqual(self.page.locator('main img[src="https://example.test/old.jpg"]').count(), 2)
 
     def test_create_second_match_and_repeat_is_idempotent(self):
         anchor = self.install([6])

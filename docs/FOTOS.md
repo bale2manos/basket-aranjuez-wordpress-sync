@@ -14,4 +14,6 @@ La configuracion tambien reconoce estos nombres cortos:
 
 La foto se reemplaza en el espacio del equipo; no se crea otra imagen ni se toca la del patrocinador. Si no hay una foto reconocible, se utiliza el escudo del club que ya esta en la biblioteca de WordPress. Si el escudo aun no esta subido, la aplicacion lo sube y lo reutiliza para el resto de equipos de esa ejecucion.
 
+Si una version anterior anadio una copia justo antes de la cronica, la app la retira al sustituir la foto original, pero solo si esa copia esta identificada como un widget creado por la app. Si no puede identificar la foto original con seguridad, no cambia ni borra ninguna imagen del bloque.
+
 Cuando dos archivos puedan corresponder al mismo equipo, la app informa de la ambiguedad y no elige uno al azar. No uses el mismo alias para equipos distintos.
