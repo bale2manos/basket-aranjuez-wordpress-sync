@@ -8,6 +8,7 @@ from docx import Document
 
 from ..models import ParsedChronicle, PartialScore
 from ..normalizer.text import (
+    ROSTER_LINE_RE,
     build_period_labels,
     compact_whitespace,
     extract_heading_and_competition,
@@ -27,7 +28,6 @@ TEAM_SCORE_LINE_PATTERN = re.compile(
     r"^\s*(?P<home_team>.+?)\s+(?P<home_score>\d+)\s*[-\u2010\u2011\u2012\u2013\u2014\u2212]\s*(?P<away_team>.+?)\s+(?P<away_score>\d+)\s*$"
 )
 TEAM_CONNECTOR_TOKENS = {"DE", "DEL", "LA", "LAS", "LOS", "EL", "AL", "Y"}
-PLAYERS_PREFIX_RE = re.compile(r"^(JUGADOR(?:ES|AS)?|1º\s*ENTRENADOR|2º\s*ENTRENADOR|ENTRENADOR(?:ES)?):", re.IGNORECASE)
 
 
 @dataclass(slots=True)
@@ -172,20 +172,15 @@ class ChronicleParser:
 
         player_lines: list[str] = []
         body_paragraphs: list[str] = []
-        roster_open = False
         for line in post_result_lines:
             if normalize_lookup_key(line).startswith("PARCIALES"):
                 continue
-            if PLAYERS_PREFIX_RE.match(line):
-                player_lines.append(line)
-                roster_open = True
-                continue
-            if roster_open and re.match(r"^\d+º\s*ENTRENADOR:", line, re.IGNORECASE):
-                player_lines.append(line)
+            if ROSTER_LINE_RE.match(line):
+                player_lines.append(normalize_roster_line(line))
                 continue
             body_paragraphs.append(line)
 
-        players_text = "\n".join(normalize_roster_line(line) for line in player_lines) if player_lines else None
+        players_text = "\n".join(player_lines) if player_lines else None
         if result is None:
             if "missing_result" not in warnings:
                 warnings.append("missing_result")
@@ -227,7 +222,7 @@ class ChronicleParser:
         normalized = normalize_lookup_key(value)
         if not normalized:
             return False
-        if normalized.startswith("PARCIALES") or PLAYERS_PREFIX_RE.match(value):
+        if normalized.startswith("PARCIALES") or ROSTER_LINE_RE.match(value):
             return False
         if SCORE_PATTERN.search(value):
             return False
@@ -241,7 +236,7 @@ class ChronicleParser:
 
     def _parse_result_line(self, value: str) -> ParsedResult | None:
         normalized = normalize_lookup_key(value)
-        if normalized.startswith("PARCIALES") or PLAYERS_PREFIX_RE.match(value):
+        if normalized.startswith("PARCIALES") or ROSTER_LINE_RE.match(value):
             return None
         result_match = RESULT_LINE_PATTERN.match(compact_whitespace(value))
         if result_match is None:

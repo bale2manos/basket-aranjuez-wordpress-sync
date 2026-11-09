@@ -86,6 +86,25 @@ class WordPressSyncParserTests(unittest.TestCase):
         chronicle = ChronicleParser().parse_docx(path)[0]
         self.assertEqual(chronicle.players_text, "JUGADORAS: Emma, Ainara, Lucia Pérez y Lucia Heredia")
 
+    def test_semicolon_roster_is_not_part_of_the_chronicle(self) -> None:
+        path = self._create_docx(
+            [
+                "CADETE FEMENINO PREFERENTE",
+                "PRIMERA DIVISIÓN GRUPO 4",
+                "C.B. COSLADA 36 - 45 BASKET ARANJUEZ",
+                "JUGADORAS; ANA, Marta, maría",
+                "1º Entrenadora ; laura garcía",
+                "Jugadoras que remontaron con una gran defensa.",
+                "Un partido de dos historias completamente distintas.",
+            ]
+        )
+        chronicle = ChronicleParser().parse_docx(path)[0]
+        self.assertEqual(chronicle.players_text, "JUGADORAS: Ana, Marta, María\n1º Entrenadora: Laura García")
+        self.assertEqual(chronicle.body_paragraphs, [
+            "Jugadoras que remontaron con una gran defensa.",
+            "Un partido de dos historias completamente distintas.",
+        ])
+
     def test_parser_marks_incomplete_blocks(self) -> None:
         path = self._create_docx(
             [
