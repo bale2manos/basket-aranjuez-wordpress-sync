@@ -40,10 +40,13 @@ class TextEditorWidgetAdapter:
         preferred_mode: str = "visual",
         fallback_text: str | None = None,
     ) -> str:
+        html_text = self.compose_html(paragraphs=paragraphs, players_text=players_text)
+        if getattr(anchor, "strict_fields", False):
+            anchor.replace_text_widget(field_name, html_text)
+            return "widget"
         anchor.click_field(field_name, fallback_text=fallback_text)
         self.side_panel.ensure_widget_type("Editor de texto", "Text Editor")
         rich_text = self.compose_rich_text(paragraphs=paragraphs, players_text=players_text)
-        html_text = self.compose_html(paragraphs=paragraphs, players_text=players_text)
         modes = [preferred_mode, "html" if preferred_mode == "visual" else "visual"]
         last_error: Exception | None = None
         for mode in modes:

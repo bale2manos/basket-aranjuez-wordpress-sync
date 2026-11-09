@@ -26,16 +26,26 @@ from basket_wordpress_sync.wordpress.api import WordPressApi
 from basket_wordpress_sync.wordpress.service import ElementorUpdateService
 
 
-def widgets(post):
+def elements(post):
     data = post["meta"]["_elementor_data"]
     if isinstance(data, str):
         data = json.loads(data)
     def walk(nodes):
         for node in nodes:
-            if node.get("widgetType"):
-                yield node
+            yield node
             yield from walk(node.get("elements") or [])
     return list(walk(data))
+
+
+def widgets(post):
+    return [node for node in elements(post) if node.get("widgetType")]
+
+
+def is_team_photo(node):
+    settings = node.get("settings")
+    return isinstance(settings, dict) and any(
+        "basket-sync-team-photo" in settings.get(key, "").split() for key in ("css_classes", "_css_classes")
+    )
 
 
 def plain(value):
@@ -44,7 +54,7 @@ def plain(value):
 
 def verify_saved(before, after, mapped, service):
     original = {node["id"]: node for node in widgets(before)}
-    current = widgets(after)
+    current = elements(after)
     errors = []
     for item in mapped:
         name = item.team_config.web_block_name
@@ -89,20 +99,22 @@ def verify_saved(before, after, mapped, service):
         for index, match in enumerate(item.all_chronicles):
             body = texts[2 * index + 1] if 2 * index + 1 < len(texts) else ""
             paragraphs = [p for p in match.body_paragraphs if p.strip()] or [service.settings.runtime.empty_chronicle_placeholder]
-            for paragraph in paragraphs:
-                if plain(paragraph) not in body:
-                    errors.append(f"{name}: falta un parrafo de cronica en el partido {index + 1}")
-        for node in editors:
-            old = original.get(node["id"])
-            if old and re.match(r"^(?:[12]\s*[\u00bao.]?\s*Entrenador|Jugadores\s*:|Jugadoras\s*:)", plain(old.get("settings", {}).get("editor", "")), re.I):
-                if old.get("settings", {}).get("editor") != node.get("settings", {}).get("editor"):
-                    errors.append(f"{name}: se ha modificado el roster")
-        images = [node for node in block if "basket-sync-team-photo" in node.get("settings", {}).get("_css_classes", "")]
-        if len(images) != 1 or not images[0].get("settings", {}).get("image", {}).get("id"):
+            if body != plain(" ".join(paragraphs)):
+                errors.append(f"{name}: la cronica del partido {index + 1} no coincide exactamente con el Word")
+            if 2 * index < len(editors):
+                roster = editors[2 * index]
+                old = original.get(roster["id"], {})
+                old_value = plain(old.get("settings", {}).get("editor", ""))
+                expected_roster = service._roster_value(match.players_text, old_value) if match.players_text else old_value
+                if (match.players_text or old) and normalize_lookup_key(expected_roster) != normalize_lookup_key(texts[2 * index]):
+                    errors.append(f"{name}: el roster del partido {index + 1} no coincide con el esperado")
+        images = [node["settings"] for node in block if is_team_photo(node)]
+        if len(images) != 1 or not (images[0].get("image") or images[0].get("background_image") or {}).get("id"):
             errors.append(f"{name}: no hay una unica foto de equipo guardada")
     current_by_id = {node["id"]: node for node in current}
     for node_id, old in original.items():
-        if old.get("widgetType") == "thegem-styledimage" and old != current_by_id.get(node_id):
+        new = current_by_id.get(node_id, {})
+        if old.get("widgetType") == "thegem-styledimage" and not is_team_photo(new) and old != new:
             errors.append(f"Se ha modificado una imagen de patrocinador: {node_id}")
     return errors
 

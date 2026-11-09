@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 
 from basket_wordpress_sync.models import PartialScore
+from basket_wordpress_sync.wordpress.adapters import TextEditorWidgetAdapter
 from basket_wordpress_sync.wordpress.contexts import TeamSectionAnchor, PERIOD_LABEL_RE
 from basket_wordpress_sync.wordpress.service import ElementorUpdateService
 from basket_wordpress_sync.wordpress.match_layout import reconcile_match_layout
@@ -254,6 +255,28 @@ class LocalBrowserLayoutTests(unittest.TestCase):
         self.assertEqual(len(anchor.prepare_match_layout([6, 6])), 2)
         self.assertEqual(self.page.locator('.basket-sync-match').count(), 1)
         self.assertEqual(self.page.locator('[data-id="next"]').inner_text(), "Alevin Masculino Negro")
+
+    def test_replace_chronicle_does_not_keep_old_text_or_touch_other_widgets(self):
+        first, second = self.install([6, 6]).match_anchors()
+        panel = Mock()
+        adapter = TextEditorWidgetAdapter(panel)
+        self.assertEqual(adapter.update_field(first, "chronicle_text", paragraphs=["Nuevo <relato>", "Fin & cierre"]), "widget")
+        self.assertEqual(self.page.locator('[data-id="m0body"]').inner_text(), "<p>Nuevo &lt;relato&gt;</p><p>Fin &amp; cierre</p>")
+        self.assertEqual(self.page.locator('[data-id="m0roster"]').inner_text(), "JUGADORAS: original")
+        self.assertEqual(second.field_locator("chronicle_text").inner_text(), "Cronica original")
+        self.assertTrue(self.page.evaluate("elementor.documents.getCurrent().editor.isChanged"))
+        self.assertEqual(panel.mock_calls, [])
+
+    def test_replace_chronicle_rejects_a_partial_write(self):
+        match = self.install([6]).match_anchors()[0]
+        self.page.evaluate("""() => {
+          const run = window.$e.run;
+          window.$e.run = (command, args) => run(command, {
+            ...args, settings: {editor: args.settings.editor + args.container.raw.settings.editor}
+          });
+        }""")
+        with self.assertRaisesRegex(Exception, "no confirmo el reemplazo completo"):
+            match.replace_text_widget("chronicle_text", "<p>Texto nuevo</p>")
 
     def test_expand_four_to_five_real_columns(self):
         anchor = self.install([4])

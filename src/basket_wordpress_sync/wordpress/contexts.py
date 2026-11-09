@@ -274,6 +274,33 @@ class TeamSectionAnchor:
             return
         raise LookupError(f"No se puede localizar el campo '{field_name}'.")
 
+    def replace_text_widget(self, field_name: str, html: str) -> None:
+        widget = self._structured_field_widgets().get(field_name)
+        if field_name not in {"players_text", "chronicle_text"} or not widget or widget["type"] != "text_editor" or not widget["dataId"]:
+            raise LookupError(f"No hay un editor de texto inequívoco para '{field_name}' en '{self.heading_text}'.")
+        self.preview.page.evaluate(
+            """({id, html}) => {
+              const replace = async () => {
+                const document = window.elementor?.documents?.getCurrent?.();
+                const root = document?.container;
+                if (!root || !window.$e) throw new Error('Elementor no esta preparado');
+                const find = node => node.id === id ? node : (node.children || []).map(find).find(Boolean);
+                const target = find(root);
+                if (target?.model?.get('widgetType') !== 'text-editor') throw new Error('El widget no es un editor de texto');
+                // Change this widget's setting directly; switching Visual/Code can restore stale text.
+                await window.$e.run('document/elements/settings', {container: target, settings: {editor: html}});
+                if (target.model.toJSON().settings?.editor !== html) {
+                  throw new Error('Elementor no confirmo el reemplazo completo del texto');
+                }
+                if (document.editor && !document.editor.isChanged) {
+                  window.$e.internal('document/save/set-is-modified', {document, status: true});
+                }
+              };
+              return Promise.race([replace(), new Promise((_, reject) => setTimeout(() => reject(new Error('Elementor no confirma el texto en 15 segundos')), 15000))]);
+            }""",
+            {"id": widget["dataId"], "html": html},
+        )
+
     def available_field_names(self) -> set[str]:
         structured = self._structured_field_widgets() if self.current_widget is not None else {}
         if structured:

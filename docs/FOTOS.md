@@ -11,6 +11,8 @@ La configuracion tambien reconoce estos nombres cortos:
 - `InfFemNegro.jpeg`: Infantil Femenino 2º año Negro.
 - `InfFemTaperiaPostas.jpeg`: Infantil Femenino 2º año Postas Taperia.
 - `InfMascNegro.jpeg`: Infantil Masculino 2º año Negro.
+- `InfFemBlanco.jpeg`, `InfMascBlanco.jpeg` e `InfMascAmarillo.jpeg`: los respectivos equipos Infantil de 2º año.
+- `CadFemBlanco.jpeg` y `CadMascNegro.jpg`: Cadete Femenino 2º año Blanco y Cadete Masculino 2º año Negro.
 
 La foto se reemplaza en el espacio del equipo; no se crea otra imagen ni se toca la del patrocinador. Si no hay una foto reconocible, se utiliza el escudo del club que ya esta en la biblioteca de WordPress. Si el escudo aun no esta subido, la aplicacion lo sube y lo reutiliza para el resto de equipos de esa ejecucion.
 

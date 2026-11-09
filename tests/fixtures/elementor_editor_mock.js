@@ -47,7 +47,8 @@ window.installEditor = models => {
     };
     root.children.forEach(child => mount.append(draw(child)));
   };
-  window.elementor = {documents: {getCurrent: () => ({container: root})}};
+  const documentState = {container: root, editor: {isChanged: false}};
+  window.elementor = {documents: {getCurrent: () => documentState}};
   window.$e = {run: async (command, args) => {
     const container = args.container;
     if (command.endsWith('/create')) {
@@ -67,5 +68,9 @@ window.installEditor = models => {
     } else throw new Error('Unsupported mock command: ' + command);
     render();
   }};
+  window.$e.internal = (command, args) => {
+    if (command !== 'document/save/set-is-modified') throw new Error('Unsupported mock command: ' + command);
+    args.document.editor.isChanged = args.status;
+  };
   render();
 };
